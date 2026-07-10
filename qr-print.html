@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ปริ้น QR Code โต๊ะ — Season One</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Noto Sans Thai',system-ui,sans-serif;background:#F3F4F6;color:#111827;padding:24px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+h1{font-size:20px}
+.hint{font-size:13px;color:#6B7280;margin-top:4px}
+.btn{background:#111827;color:#fff;border:none;border-radius:999px;padding:12px 24px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
+.qr-card{background:#fff;border-radius:16px;padding:22px 16px;text-align:center;border:1px solid #E5E7EB;break-inside:avoid;page-break-inside:avoid}
+.qr-card .shop{font-size:13px;color:#6B7280;letter-spacing:.5px}
+.qr-card .tbl{font-size:26px;font-weight:700;margin:4px 0 12px}
+.qr-card .qrbox{display:flex;justify-content:center}
+.qr-card .qrbox img,.qr-card .qrbox canvas{border-radius:8px}
+.qr-card .scan{font-size:13px;color:#6B7280;margin-top:12px;line-height:1.5}
+.loading{text-align:center;color:#6B7280;padding:60px 20px}
+@media print{
+  body{background:#fff;padding:0}
+  .topbar{display:none}
+  .grid{grid-template-columns:repeat(2,1fr);gap:10mm}
+  .qr-card{border:1px dashed #9CA3AF;border-radius:8px}
+}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div>
+    <h1>🖨️ QR Code ประจำโต๊ะ — สแกนสั่งอาหาร</h1>
+    <div class="hint">ดึงรายชื่อโต๊ะจากระบบอัตโนมัติ · กดปุ่มปริ้น แล้วตัดติดโต๊ะได้เลย (แนะนำเคลือบพลาสติกกันน้ำ)</div>
+  </div>
+  <button class="btn" onclick="window.print()">🖨️ ปริ้นทั้งหมด</button>
+</div>
+<div class="grid" id="grid"><div class="loading">กำลังโหลดรายชื่อโต๊ะ…</div></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, getDoc, doc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA71ESNyfsMVV3inUmE24F5VzozhE-JIL8",
+  authDomain: "pos-lite-2571d.firebaseapp.com",
+  projectId: "pos-lite-2571d",
+  storageBucket: "pos-lite-2571d.firebasestorage.app",
+  messagingSenderId: "14718432688",
+  appId: "1:14718432688:web:06568e6d05959671689275"
+};
+const db = getFirestore(initializeApp(firebaseConfig));
+
+// ลิงก์ปลายทางของ QR — อิงจากตำแหน่งไฟล์นี้เอง (อยู่โฟลเดอร์เดียวกับ order.html เสมอ)
+const BASE = location.href.replace(/qr-print\.html.*$/, 'order.html');
+
+(async () => {
+  let shopName = 'Season One';
+  try {
+    const s = await getDoc(doc(db,'settings','shop'));
+    if(s.exists() && s.data().name) shopName = s.data().name;
+  } catch(e){}
+
+  const grid = document.getElementById('grid');
+  try {
+    const qs = await getDocs(collection(db,'tables'));
+    const tables = [];
+    qs.forEach(d => { const t = {id:d.id, ...d.data()}; if(t.active !== false) tables.push(t); });
+    tables.sort((a,b)=>(a.name||a.id).localeCompare(b.name||b.id, 'th', {numeric:true}));
+
+    if(!tables.length){ grid.innerHTML = '<div class="loading">ยังไม่มีโต๊ะในระบบ — เพิ่มโต๊ะในหน้าแอดมินก่อนครับ</div>'; return; }
+
+    grid.innerHTML = tables.map(t =>
+      '<div class="qr-card"><div class="shop">'+shopName+'</div>'+
+      '<div class="tbl">โต๊ะ '+(t.name||t.id)+'</div>'+
+      '<div class="qrbox" id="qr-'+t.id+'"></div>'+
+      '<div class="scan">📱 สแกนเพื่อสั่งอาหาร<br>ดูสถานะ และเรียกพนักงานได้เลย</div></div>'
+    ).join('');
+
+    tables.forEach(t => {
+      new QRCode(document.getElementById('qr-'+t.id), {
+        text: BASE + '?table=' + encodeURIComponent(t.name||t.id),
+        width: 160, height: 160, correctLevel: QRCode.CorrectLevel.M
+      });
+    });
+  } catch(e){
+    grid.innerHTML = '<div class="loading">โหลดโต๊ะไม่สำเร็จ: '+e.message+'</div>';
+  }
+})();
+</script>
+</body>
+</html>

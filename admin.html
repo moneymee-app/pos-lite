@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>แอดมิน — pos-lite</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#F3F4F6;--ink:#111827;--sub:#6B7280;--line:#E5E7EB;--soft:#F9FAFB;--gold:#D9A400;--red:#DC2626;--green:#16A34A;--r:14px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Noto Sans Thai',system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+button{font-family:inherit;border:none;cursor:pointer}
+input,select,textarea{font-family:inherit}
+
+.login-wrap{max-width:360px;margin:80px auto;background:#fff;border-radius:16px;padding:28px;border:1px solid var(--line)}
+.login-wrap h2{font-size:19px;margin-bottom:16px;text-align:center}
+.login-wrap input{width:100%;border:1.5px solid var(--line);border-radius:10px;padding:12px 14px;font-size:15px;margin-bottom:12px;outline:none}
+.login-wrap input:focus{border-color:var(--ink)}
+.login-wrap button{width:100%;background:var(--ink);color:#fff;border-radius:10px;padding:13px;font-size:15px;font-weight:700}
+.login-err{color:#DC2626;font-size:13px;text-align:center;margin-top:8px;min-height:18px}
+
+.topbar{background:#fff;border-bottom:1px solid var(--line);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:20}
+.topbar h1{font-size:19px}
+.logout{background:var(--soft);border:1px solid var(--line);border-radius:999px;padding:9px 18px;font-size:13.5px}
+.tabs{display:flex;gap:4px;background:#fff;border-bottom:1px solid var(--line);padding:0 20px;overflow-x:auto}
+.tab{padding:13px 16px;font-size:14.5px;color:var(--sub);border-bottom:3px solid transparent;white-space:nowrap;font-weight:600}
+.tab.active{color:var(--ink);border-bottom-color:var(--ink)}
+.wrap{max-width:1000px;margin:0 auto;padding:20px}
+.panel{display:none}
+.panel.active{display:block}
+
+.card{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:18px;margin-bottom:14px}
+.row-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.row-head h3{font-size:16px}
+.btn{background:var(--ink);color:#fff;border-radius:10px;padding:10px 18px;font-size:14px;font-weight:700}
+.btn.ghost{background:var(--soft);color:var(--ink);border:1px solid var(--line)}
+.btn.danger{background:#FEE2E2;color:var(--red)}
+.btn.gold{background:var(--gold);color:#fff}
+.btn:disabled{opacity:.5}
+
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;color:var(--sub);font-weight:600;font-size:12.5px;padding:8px;border-bottom:1px solid var(--line)}
+td{padding:10px 8px;border-bottom:1px solid var(--soft)}
+.pill{background:var(--soft);border-radius:999px;padding:3px 10px;font-size:12px}
+.pill.off{color:var(--red)}
+.mini{background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:6px 12px;font-size:12.5px;margin-right:4px}
+
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.form-grid label{font-size:12.5px;color:var(--sub);display:block;margin-bottom:4px}
+.form-grid input,.form-grid select{width:100%;border:1.5px solid var(--line);border-radius:8px;padding:10px;font-size:14px}
+.full{grid-column:1/-1}
+
+.notif{display:flex;justify-content:space-between;align-items:center;padding:12px;border-radius:10px;background:var(--soft);margin-bottom:8px;font-size:14px}
+.notif .t{font-size:12px;color:var(--sub)}
+.empty{color:var(--sub);text-align:center;padding:30px;font-size:14px}
+
+.import-box{border:1.5px dashed var(--gold);border-radius:12px;padding:18px;background:#FFFBEB}
+.import-box p{font-size:13.5px;color:var(--sub);line-height:1.6;margin-bottom:12px}
+.import-log{background:#111827;color:#D1FAE5;font-size:12.5px;border-radius:8px;padding:12px;margin-top:12px;max-height:200px;overflow-y:auto;font-family:monospace;display:none;white-space:pre-wrap}
+</style>
+</head>
+<body>
+
+<div id="loginScreen" class="login-wrap">
+  <h2>🔥 เข้าสู่ระบบ — แอดมิน</h2>
+  <input type="email" id="loginEmail" placeholder="อีเมล">
+  <input type="password" id="loginPass" placeholder="รหัสผ่าน">
+  <button id="loginBtn">เข้าสู่ระบบ</button>
+  <div class="login-err" id="loginErr"></div>
+</div>
+
+<div id="app" style="display:none">
+  <div class="topbar">
+    <h1>⚙️ แอดมิน — pos-lite</h1>
+    <button class="logout" id="logoutBtn">ออกจากระบบ</button>
+  </div>
+  <div class="tabs" id="tabs">
+    <button class="tab active" data-p="notif">🔔 แจ้งเตือน</button>
+    <button class="tab" data-p="menu">🍽️ เมนู</button>
+    <button class="tab" data-p="tables">🪑 โต๊ะ</button>
+    <button class="tab" data-p="shop">🏪 ตั้งค่าร้าน</button>
+    <button class="tab" data-p="import">📥 นำเข้าข้อมูล</button>
+  </div>
+  <div class="wrap">
+
+    <!-- แจ้งเตือน -->
+    <div class="panel active" id="p-notif">
+      <div class="card">
+        <div class="row-head"><h3>เรียกพนักงาน / ขอเก็บเงิน</h3></div>
+        <div id="notifList"><div class="empty">ยังไม่มีแจ้งเตือน</div></div>
+      </div>
+    </div>
+
+    <!-- เมนู -->
+    <div class="panel" id="p-menu">
+      <div class="card">
+        <div class="row-head"><h3>รายการเมนู</h3><button class="btn" id="addMenuBtn">+ เพิ่มเมนู</button></div>
+        <div id="menuFormBox" style="display:none">
+          <div class="form-grid">
+            <div><label>ชื่อเมนู</label><input id="mName"></div>
+            <div><label>ราคา</label><input id="mPrice" type="number"></div>
+            <div><label>หมวดหมู่</label><input id="mCat" placeholder="เช่น อาหารหลัก, เบียร์"></div>
+            <div><label>สถานี (สำหรับครัว)</label><select id="mStation"><option value="kitchen">ครัว</option><option value="bar">บาร์</option></select></div>
+            <div class="full"><label>Photo ID (Google Drive) หรือเว้นว่างไว้ก่อนได้</label><input id="mPhoto"></div>
+          </div>
+          <button class="btn" id="saveMenuBtn">บันทึก</button>
+          <button class="btn ghost" id="cancelMenuBtn">ยกเลิก</button>
+        </div>
+        <table><thead><tr><th>ชื่อ</th><th>หมวดหมู่</th><th>ราคา</th><th>สถานะ</th><th></th></tr></thead><tbody id="menuTable"></tbody></table>
+      </div>
+    </div>
+
+    <!-- โต๊ะ -->
+    <div class="panel" id="p-tables">
+      <div class="card">
+        <div class="row-head"><h3>โต๊ะทั้งหมด</h3><button class="btn" id="addTableBtn">+ เพิ่มโต๊ะ</button></div>
+        <div id="tableFormBox" style="display:none">
+          <div class="form-grid">
+            <div><label>ชื่อโต๊ะ (เช่น T6)</label><input id="tName"></div>
+            <div><label>โซน</label><input id="tZone"></div>
+            <div><label>จำนวนที่นั่ง</label><input id="tSeats" type="number"></div>
+          </div>
+          <button class="btn" id="saveTableBtn">บันทึก</button>
+          <button class="btn ghost" id="cancelTableBtn">ยกเลิก</button>
+        </div>
+        <table><thead><tr><th>โต๊ะ</th><th>โซน</th><th>ที่นั่ง</th><th></th></tr></thead><tbody id="tableTable"></tbody></table>
+        <div style="margin-top:10px"><a href="qr-print.html" target="_blank" class="btn ghost" style="text-decoration:none;display:inline-block">🖨️ ไปหน้าปริ้น QR โต๊ะ</a></div>
+      </div>
+    </div>
+
+    <!-- ตั้งค่าร้าน -->
+    <div class="panel" id="p-shop">
+      <div class="card">
+        <div class="row-head"><h3>ชื่อร้าน</h3></div>
+        <div class="form-grid"><div class="full"><label>ชื่อร้าน (แสดงบนหน้าลูกค้า)</label><input id="shopName"></div></div>
+        <button class="btn" id="saveShopBtn">บันทึก</button>
+      </div>
+    </div>
+
+    <!-- นำเข้าข้อมูล -->
+    <div class="panel" id="p-import">
+      <div class="card">
+        <div class="row-head"><h3>นำเข้าเมนู + โต๊ะ จากระบบเดิม (season-one-pos)</h3></div>
+        <div class="import-box">
+          <p>ดึงเมนูและโต๊ะทั้งหมดจากระบบเดิมมาใส่ระบบใหม่นี้ ทำครั้งเดียวพอ — กดซ้ำได้ ระบบจะข้ามรายการที่มีชื่อซ้ำอัตโนมัติ ไม่เขียนทับของเดิม</p>
+          <button class="btn gold" id="importBtn">📥 เริ่มนำเข้าข้อมูล</button>
+          <div class="import-log" id="importLog"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// ===================== ระบบใหม่ (pos-lite) =====================
+const firebaseConfig = {
+  apiKey: "AIzaSyA71ESNyfsMVV3inUmE24F5VzozhE-JIL8",
+  authDomain: "pos-lite-2571d.firebaseapp.com",
+  projectId: "pos-lite-2571d",
+  storageBucket: "pos-lite-2571d.firebasestorage.app",
+  messagingSenderId: "14718432688",
+  appId: "1:14718432688:web:06568e6d05959671689275"
+};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const $ = id => document.getElementById(id);
+const baht = n => '฿'+Number(n).toLocaleString();
+
+// ===================== ล็อกอิน =====================
+$('loginBtn').addEventListener('click', async () => {
+  $('loginErr').textContent = '';
+  try { await signInWithEmailAndPassword(auth, $('loginEmail').value.trim(), $('loginPass').value); }
+  catch(e){ $('loginErr').textContent = 'อีเมลหรือรหัสผ่านไม่ถูกต้อง'; }
+});
+$('logoutBtn').addEventListener('click', () => signOut(auth));
+onAuthStateChanged(auth, user => {
+  $('loginScreen').style.display = user ? 'none' : 'block';
+  $('app').style.display = user ? 'block' : 'none';
+  if(user){ loadMenu(); loadTables(); loadShop(); listenNotif(); }
+});
+
+// ===================== แท็บ =====================
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active'); $('p-'+t.dataset.p).classList.add('active');
+}));
+
+// ===================== เมนู =====================
+let MENU = [], editingMenuId = null;
+$('addMenuBtn').addEventListener('click', () => { editingMenuId = null; ['mName','mPrice','mCat','mPhoto'].forEach(id=>$(id).value=''); $('mStation').value='kitchen'; $('menuFormBox').style.display='block'; });
+$('cancelMenuBtn').addEventListener('click', () => $('menuFormBox').style.display='none');
+$('saveMenuBtn').addEventListener('click', async () => {
+  const name = $('mName').value.trim(), price = Number($('mPrice').value), category = $('mCat').value.trim()||'อื่นๆ';
+  if(!name || !price){ alert('กรุณาใส่ชื่อและราคา'); return; }
+  const data = { name, price, category, station: $('mStation').value, photoId: $('mPhoto').value.trim(), active: true };
+  try {
+    await setDoc(doc(db,'menu', editingMenuId || 'M'+Date.now()), data, {merge:true});
+    $('menuFormBox').style.display='none'; loadMenu();
+  } catch(e){ alert('บันทึกไม่สำเร็จ: '+e.message); }
+});
+async function loadMenu(){
+  const qs = await getDocs(collection(db,'menu'));
+  MENU = []; qs.forEach(d=>MENU.push({id:d.id,...d.data()}));
+  MENU.sort((a,b)=>a.name.localeCompare(b.name,'th'));
+  $('menuTable').innerHTML = MENU.map(m =>
+    '<tr><td>'+m.name+'</td><td>'+m.category+'</td><td>'+baht(m.price)+'</td>'+
+    '<td><span class="pill '+(m.active?'':'off')+'">'+(m.active?'ใช้งาน':'ปิด')+'</span></td>'+
+    '<td><button class="mini" data-e="'+m.id+'">แก้ไข</button><button class="mini" data-t="'+m.id+'">'+(m.active?'ปิด':'เปิด')+'</button><button class="mini" data-d="'+m.id+'">ลบ</button></td></tr>'
+  ).join('') || '<tr><td colspan="5" class="empty">ยังไม่มีเมนู — กด "นำเข้าข้อมูล" เพื่อดึงจากระบบเดิม หรือเพิ่มเอง</td></tr>';
+  $('menuTable').querySelectorAll('[data-e]').forEach(b=>b.addEventListener('click', ()=>editMenu(b.dataset.e)));
+  $('menuTable').querySelectorAll('[data-t]').forEach(b=>b.addEventListener('click', async ()=>{ const m=MENU.find(x=>x.id===b.dataset.t); await updateDoc(doc(db,'menu',m.id),{active:!m.active}); loadMenu(); }));
+  $('menuTable').querySelectorAll('[data-d]').forEach(b=>b.addEventListener('click', async ()=>{ if(confirm('ลบเมนูนี้?')){ await deleteDoc(doc(db,'menu',b.dataset.d)); loadMenu(); } }));
+}
+function editMenu(id){
+  const m = MENU.find(x=>x.id===id); editingMenuId = id;
+  $('mName').value=m.name; $('mPrice').value=m.price; $('mCat').value=m.category; $('mStation').value=m.station||'kitchen'; $('mPhoto').value=m.photoId||'';
+  $('menuFormBox').style.display='block';
+}
+
+// ===================== โต๊ะ =====================
+let TABLES = [], editingTableId = null;
+$('addTableBtn').addEventListener('click', () => { editingTableId=null; ['tName','tZone','tSeats'].forEach(id=>$(id).value=''); $('tableFormBox').style.display='block'; });
+$('cancelTableBtn').addEventListener('click', () => $('tableFormBox').style.display='none');
+$('saveTableBtn').addEventListener('click', async () => {
+  const name = $('tName').value.trim();
+  if(!name){ alert('กรุณาใส่ชื่อโต๊ะ'); return; }
+  try {
+    await setDoc(doc(db,'tables', editingTableId || name), { name, zone: $('tZone').value.trim(), seats: Number($('tSeats').value)||0, active:true }, {merge:true});
+    $('tableFormBox').style.display='none'; loadTables();
+  } catch(e){ alert('บันทึกไม่สำเร็จ: '+e.message); }
+});
+async function loadTables(){
+  const qs = await getDocs(collection(db,'tables'));
+  TABLES = []; qs.forEach(d=>TABLES.push({id:d.id,...d.data()}));
+  TABLES.sort((a,b)=>(a.name||a.id).localeCompare(b.name||b.id,'th',{numeric:true}));
+  $('tableTable').innerHTML = TABLES.map(t =>
+    '<tr><td>'+(t.name||t.id)+'</td><td>'+(t.zone||'-')+'</td><td>'+(t.seats||'-')+'</td>'+
+    '<td><button class="mini" data-e="'+t.id+'">แก้ไข</button><button class="mini" data-d="'+t.id+'">ลบ</button></td></tr>'
+  ).join('') || '<tr><td colspan="4" class="empty">ยังไม่มีโต๊ะ — กด "นำเข้าข้อมูล" หรือเพิ่มเอง</td></tr>';
+  $('tableTable').querySelectorAll('[data-e]').forEach(b=>b.addEventListener('click', ()=>{
+    const t=TABLES.find(x=>x.id===b.dataset.e); editingTableId=t.id;
+    $('tName').value=t.name||t.id; $('tZone').value=t.zone||''; $('tSeats').value=t.seats||'';
+    $('tableFormBox').style.display='block';
+  }));
+  $('tableTable').querySelectorAll('[data-d]').forEach(b=>b.addEventListener('click', async ()=>{ if(confirm('ลบโต๊ะนี้?')){ await deleteDoc(doc(db,'tables',b.dataset.d)); loadTables(); } }));
+}
+
+// ===================== ตั้งค่าร้าน =====================
+async function loadShop(){
+  try { const s = await getDoc(doc(db,'settings','shop')); if(s.exists()) $('shopName').value = s.data().name||''; } catch(e){}
+}
+$('saveShopBtn').addEventListener('click', async () => {
+  try { await setDoc(doc(db,'settings','shop'), {name: $('shopName').value.trim()}, {merge:true}); alert('✓ บันทึกแล้ว'); }
+  catch(e){ alert('บันทึกไม่สำเร็จ: '+e.message); }
+});
+
+// ===================== แจ้งเตือน (เรียกพนักงาน / ขอเก็บเงิน) =====================
+function listenNotif(){
+  onSnapshot(query(collection(db,'calls'), where('resolved','==',false)), qs => {
+    const calls = []; qs.forEach(d=>calls.push({id:d.id,...d.data()}));
+    calls.sort((a,b)=>(a.createdAt?.toDate?.()?.getTime()||0)-(b.createdAt?.toDate?.()?.getTime()||0));
+    $('notifList').innerHTML = calls.length ? calls.map(c => {
+      const mins = c.createdAt?.toDate ? Math.round((Date.now()-c.createdAt.toDate().getTime())/60000) : 0;
+      const label = c.type==='bill' ? '💵 โต๊ะ '+c.table+' ขอเก็บเงิน'+(c.total?' · '+baht(c.total):'') : '🔔 โต๊ะ '+c.table+' เรียกพนักงาน';
+      return '<div class="notif"><span>'+label+'<div class="t">'+mins+' นาทีที่แล้ว</div></span><button class="mini" data-r="'+c.id+'">✓ รับทราบแล้ว</button></div>';
+    }).join('') : '<div class="empty">ยังไม่มีแจ้งเตือน</div>';
+    $('notifList').querySelectorAll('[data-r]').forEach(b=>b.addEventListener('click', async ()=>{ await updateDoc(doc(db,'calls',b.dataset.r),{resolved:true}); }));
+  }, e => console.warn('calls listener', e));
+}
+
+// ===================== นำเข้าข้อมูลจากระบบเดิม (season-one-pos) =====================
+// ใช้ Firebase app instance ที่สอง ชี้ไปโปรเจคเดิม เพื่ออ่านข้อมูลเก่ามาเขียนเข้าโปรเจคใหม่ (db ด้านบน)
+const oldFirebaseConfig = {
+  apiKey: "AIzaSyDXuK8sP5g3E9Avujm-gKP1p6K22t8mfUc",
+  authDomain: "season-one-pos.firebaseapp.com",
+  projectId: "season-one-pos",
+  storageBucket: "season-one-pos.firebasestorage.app",
+  messagingSenderId: "425225846187",
+  appId: "1:425225846187:web:ccb56ad4590450c6d426ee"
+};
+function log(msg){ const el=$('importLog'); el.style.display='block'; el.textContent += msg+'\n'; el.scrollTop = el.scrollHeight; }
+$('importBtn').addEventListener('click', async () => {
+  $('importBtn').disabled = true; $('importLog').textContent = '';
+  try {
+    log('🔗 เชื่อมต่อระบบเดิม (season-one-pos)...');
+    const oldApp = initializeApp(oldFirebaseConfig, 'oldSystemImport-'+Date.now());
+    const oldDb = getFirestore(oldApp);
+
+    // นำเข้าเมนู — ข้ามถ้ามีชื่อซ้ำอยู่แล้วในระบบใหม่
+    log('📋 กำลังอ่านเมนูจากระบบเดิม...');
+    const oldMenuSnap = await getDocs(collection(oldDb,'menu'));
+    const existingMenuNames = new Set(MENU.map(m=>m.name));
+    let addedMenu = 0, skippedMenu = 0;
+    for(const d of oldMenuSnap.docs){
+      const m = d.data();
+      if(existingMenuNames.has(m.name)){ skippedMenu++; continue; }
+      await setDoc(doc(db,'menu', d.id), {
+        name: m.name, price: m.price, category: m.category||'อื่นๆ',
+        station: m.station||'kitchen', photoId: m.photoId||'', photoData: m.photoData||'', active: m.active !== false
+      });
+      addedMenu++;
+    }
+    log('✓ เมนู: เพิ่มใหม่ '+addedMenu+' รายการ, ข้าม (ซ้ำ) '+skippedMenu+' รายการ');
+
+    // นำเข้าโต๊ะ
+    log('🪑 กำลังอ่านโต๊ะจากระบบเดิม...');
+    const oldTableSnap = await getDocs(collection(oldDb,'tables'));
+    const existingTableNames = new Set(TABLES.map(t=>t.name||t.id));
+    let addedTable = 0, skippedTable = 0;
+    for(const d of oldTableSnap.docs){
+      const t = d.data();
+      if(existingTableNames.has(t.name||d.id)){ skippedTable++; continue; }
+      await setDoc(doc(db,'tables', d.id), { name: t.name||d.id, zone: t.zone||'', seats: t.seats||0, active: t.active !== false });
+      addedTable++;
+    }
+    log('✓ โต๊ะ: เพิ่มใหม่ '+addedTable+' โต๊ะ, ข้าม (ซ้ำ) '+skippedTable+' โต๊ะ');
+    log('🎉 นำเข้าข้อมูลเสร็จสมบูรณ์!');
+    loadMenu(); loadTables();
+  } catch(e){
+    log('❌ ผิดพลาด: '+e.message);
+  }
+  $('importBtn').disabled = false;
+});
+</script>
+</body>
+</html>
