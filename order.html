@@ -25,6 +25,8 @@ button{font-family:inherit;border:none;background:none;cursor:pointer;color:inhe
 img{display:block}
 
 /* ============ Top bar (แทน Hero เดิม — ตัดออกตามคำขอ ให้เจอเมนูทันที) ============ */
+.heroBanner{width:100%;aspect-ratio:16/6;overflow:hidden;background:var(--soft)}
+.heroBanner img{width:100%;height:100%;object-fit:cover;display:block}
 .topbar{background:#fff;border-bottom:1px solid var(--line);padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px}
 .table-pill{background:var(--soft);color:var(--ink);border-radius:14px;padding:9px 16px;font-weight:600;font-size:15px;display:flex;align-items:center;gap:8px}
 .table-pill .chev{font-size:11px;color:var(--sub)}
@@ -156,7 +158,10 @@ img{display:block}
   <p>หน้านี้ใช้สั่งอาหารจากโต๊ะในร้านเท่านั้น<br>สแกน QR Code ที่ติดอยู่บนโต๊ะของคุณเพื่อเริ่มสั่งอาหารได้เลยครับ</p>
 </div>
 
-<!-- ===== Top bar (ไม่มี Hero — ลูกค้าเห็นเมนูทันที) ===== -->
+<!-- ===== Hero banner (โชว์เฉพาะถ้าแอดมินอัปโหลดรูปไว้ — ไม่งั้นข้ามไปเจอเมนูเลยเหมือนเดิม) ===== -->
+<div class="heroBanner" id="heroBanner" style="display:none"><img id="heroImg" alt=""></div>
+
+<!-- ===== Top bar ===== -->
 <div class="topbar" id="topbar">
   <button class="table-pill" id="tablePill">
     โต๊ะ <span id="tableLabel">-</span>&nbsp;|&nbsp;คุณ <span id="nameLabel">-</span>
@@ -298,6 +303,7 @@ const db = getFirestore(initializeApp(firebaseConfig));
 const params = new URLSearchParams(location.search);
 const TABLE = params.get('table');
 const photoUrl = id => id && id.startsWith('data:') ? id : 'https://drive.google.com/thumbnail?id='+id+'&sz=w400';
+const resolvePhoto_ = m => m ? (m.photoUrl || (m.photoData && m.photoData.startsWith('data:') ? m.photoData : (m.photoId ? photoUrl(m.photoId) : null))) : null;
 const baht = n => '฿'+Number(n).toLocaleString();
 const $ = id => document.getElementById(id);
 
@@ -346,12 +352,16 @@ function applyTheme_(key){
   r.setProperty('--gold', t.accent); r.setProperty('--gold-soft', t.soft);
 }
 
-// ===================== ชื่อร้าน (ใช้ตั้งชื่อแท็บเบราว์เซอร์เฉยๆ ไม่มี Hero ให้โชว์แล้ว) =====================
+// ===================== ชื่อร้าน + Hero + ธีม (จาก settings/shop) =====================
 (async () => {
   try {
     const s = await getDoc(doc(db,'settings','shop'));
-    if(s.exists() && s.data().name){ document.title = s.data().name+' — สั่งอาหาร'; }
-    if(s.exists() && s.data().themeCustomer){ applyTheme_(s.data().themeCustomer); }
+    if(s.exists()){
+      const d = s.data();
+      if(d.name){ document.title = d.name+' — สั่งอาหาร'; }
+      if(d.themeCustomer){ applyTheme_(d.themeCustomer); }
+      if(d.heroUrl){ $('heroImg').src = d.heroUrl; $('heroBanner').style.display = 'block'; }
+    }
   } catch(e){}
 })();
 
@@ -378,8 +388,9 @@ $('catSearchInput').addEventListener('input', e=>renderCatList(e.target.value.tr
 $('catListBtn').addEventListener('click', ()=>{ $('catSearchInput').value=''; renderCatList(); openSheet('catSheet'); });
 
 function cardHtml(m){
-  const img = (m.photoData||m.photoId)
-    ? '<img src="'+photoUrl(m.photoData||m.photoId)+'" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement(\'span\'),{textContent:\'🍽️\'}))">'
+  const photoSrc = resolvePhoto_(m);
+  const img = photoSrc
+    ? '<img src="'+photoSrc+'" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement(\'span\'),{textContent:\'🍽️\'}))">'
     : '🍽️';
   const inCart = CART.filter(c=>c.name===m.name).reduce((s,c)=>s+c.qty,0);
   return '<div class="card" data-name="'+m.name+'">'+
@@ -442,8 +453,8 @@ function openItem(name){
   $('itemNm').textContent = m.name;
   $('itemPr').textContent = baht(m.price);
   $('itemNote').value = '';
-  $('itemImg').innerHTML = (m.photoData||m.photoId)
-    ? '<img src="'+photoUrl(m.photoData||m.photoId)+'" onerror="this.replaceWith(Object.assign(document.createElement(\'span\'),{textContent:\'🍽️\'}))">' : '🍽️';
+  $('itemImg').innerHTML = resolvePhoto_(m)
+    ? '<img src="'+resolvePhoto_(m)+'" onerror="this.replaceWith(Object.assign(document.createElement(\'span\'),{textContent:\'🍽️\'}))">' : '🍽️';
   updateQtyUI(); openSheet('itemSheet');
 }
 function updateQtyUI(){
@@ -478,8 +489,8 @@ function renderCartSheet(){
   if(!CART.length){ body.innerHTML = '<div class="empty-note">ตะกร้าว่าง</div>'; }
   else body.innerHTML = CART.map((c,i)=>{
     const m = MENU.find(x=>x.name===c.name);
-    const img = m && (m.photoData||m.photoId)
-      ? '<img src="'+photoUrl(m.photoData||m.photoId)+'" onerror="this.replaceWith(Object.assign(document.createElement(\'span\'),{textContent:\'🍽️\'}))">' : '🍽️';
+    const img = resolvePhoto_(m)
+      ? '<img src="'+resolvePhoto_(m)+'" onerror="this.replaceWith(Object.assign(document.createElement(\'span\'),{textContent:\'🍽️\'}))">' : '🍽️';
     return '<div class="cart-row"><div class="thumb">'+img+'</div>'+
       '<div class="info"><div class="nm">'+c.name+'</div>'+(c.note?'<div class="nt">📝 '+c.note+'</div>':'')+
       '<div class="mini-qty"><button data-act="minus" data-i="'+i+'">−</button><span>'+c.qty+'</span><button data-act="plus" data-i="'+i+'">＋</button></div></div>'+
@@ -544,8 +555,8 @@ function renderHist(){
     o.items.forEach((it, idx) => {
       count += it.qty; total += it.qty * it.price;
       const m = MENU.find(x=>x.name===it.name);
-      const img = m && (m.photoData||m.photoId)
-        ? '<img src="'+photoUrl(m.photoData||m.photoId)+'" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement(\'span\'),{textContent:\'🍽️\'}))">' : '🍽️';
+      const img = resolvePhoto_(m)
+        ? '<img src="'+resolvePhoto_(m)+'" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement(\'span\'),{textContent:\'🍽️\'}))">' : '🍽️';
       html += '<div class="hist-row"><div class="thumb">'+img+'</div>'+
         '<div class="mid"><div class="nm">'+it.name+'</div>'+
         (it.note?'<div class="hist-note">📝 '+it.note+'</div>':'')+
