@@ -66,6 +66,10 @@ td{padding:10px 8px;border-bottom:1px solid var(--soft)}
 .bill-actions{display:flex;gap:10px;margin-top:14px}
 .pp-default{color:var(--green);font-weight:700}
 
+.pending-row{display:flex;justify-content:space-between;align-items:center;padding:14px;border-radius:10px;background:var(--soft);margin-bottom:8px;cursor:pointer;font-weight:600;font-size:15px}
+.pending-row:active{background:var(--line)}
+.pending-row .amt{color:var(--gold);font-weight:700}
+
 .theme-label{font-size:13px;color:var(--sub);margin-bottom:8px;font-weight:600}
 .theme-row{display:flex;flex-wrap:wrap;gap:10px}
 .swatch{width:56px;height:56px;border-radius:12px;border:2.5px solid transparent;cursor:pointer;display:flex;align-items:flex-end;justify-content:center;padding-bottom:4px;font-size:16px}
@@ -115,8 +119,10 @@ td{padding:10px 8px;border-bottom:1px solid var(--soft)}
         <div class="row-head"><h3>รายการเมนู</h3><button class="btn" id="addMenuBtn">+ เพิ่มเมนู</button></div>
         <div id="menuFormBox" style="display:none">
           <div class="form-grid">
-            <div><label>ชื่อเมนู</label><input id="mName"></div>
+            <div><label>ชื่อเมนู (ไทย)</label><input id="mName"></div>
             <div><label>ราคา</label><input id="mPrice" type="number"></div>
+            <div><label>ชื่อเมนู (English) — ไม่บังคับ</label><input id="mNameEn" placeholder="e.g. Pad Thai"></div>
+            <div><label>ชื่อเมนู (中文) — ไม่บังคับ</label><input id="mNameZh" placeholder="เช่น 泰式炒河粉"></div>
             <div><label>หมวดหมู่</label><input id="mCat" placeholder="เช่น อาหารหลัก, เบียร์"></div>
             <div><label>สถานี (สำหรับครัว)</label><select id="mStation"><option value="kitchen">ครัว</option><option value="bar">บาร์</option></select></div>
             <div class="full">
@@ -133,7 +139,7 @@ td{padding:10px 8px;border-bottom:1px solid var(--soft)}
           <button class="btn" id="saveMenuBtn">บันทึก</button>
           <button class="btn ghost" id="cancelMenuBtn">ยกเลิก</button>
         </div>
-        <table><thead><tr><th>ชื่อ</th><th>หมวดหมู่</th><th>ราคา</th><th>สถานะ</th><th></th></tr></thead><tbody id="menuTable"></tbody></table>
+        <table><thead><tr><th>รูป</th><th>ชื่อ</th><th>หมวดหมู่</th><th>ราคา</th><th>สถานะ</th><th></th></tr></thead><tbody id="menuTable"></tbody></table>
       </div>
     </div>
 
@@ -158,7 +164,11 @@ td{padding:10px 8px;border-bottom:1px solid var(--soft)}
     <!-- เก็บเงิน -->
     <div class="panel" id="p-billing">
       <div class="card">
-        <div class="row-head"><h3>เลือกโต๊ะเพื่อเก็บเงิน</h3></div>
+        <div class="row-head"><h3>โต๊ะที่มียอดค้างชำระ</h3><button class="btn ghost" id="refreshPendingBtn">🔄 รีเฟรช</button></div>
+        <div id="pendingTablesList"><div class="empty">กำลังโหลด...</div></div>
+      </div>
+      <div class="card">
+        <div class="row-head"><h3>หรือเลือกโต๊ะเอง</h3></div>
         <div class="form-grid">
           <div class="full"><label>โต๊ะ</label><select id="billTableSelect"><option value="">-- เลือกโต๊ะ --</option></select></div>
         </div>
@@ -281,6 +291,8 @@ const $ = id => document.getElementById(id);
   } catch(e){}
 })();
 const baht = n => '฿'+Number(n).toLocaleString();
+const driveUrl_ = id => id && id.startsWith('data:') ? id : 'https://drive.google.com/thumbnail?id='+id+'&sz=w400';
+const resolvePhoto_ = m => m ? (m.photoUrl || (m.photoData && m.photoData.startsWith('data:') ? m.photoData : (m.photoId ? driveUrl_(m.photoId) : null))) : null;
 
 // ===================== ล็อกอิน =====================
 $('loginBtn').addEventListener('click', async () => {
@@ -292,7 +304,7 @@ $('logoutBtn').addEventListener('click', () => signOut(auth));
 onAuthStateChanged(auth, user => {
   $('loginScreen').style.display = user ? 'none' : 'block';
   $('app').style.display = user ? 'block' : 'none';
-  if(user){ loadMenu(); loadTables(); loadShop(); listenNotif(); loadPromptPay(); loadThemes(); }
+  if(user){ loadMenu(); loadTables(); loadShop(); listenNotif(); loadPromptPay(); loadThemes(); loadPendingTables_(); }
 });
 
 // ===================== แท็บ =====================
@@ -300,13 +312,14 @@ document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () =>
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
   document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
   t.classList.add('active'); $('p-'+t.dataset.p).classList.add('active');
+  if(t.dataset.p === 'billing') loadPendingTables_();
 }));
 
 // ===================== เมนู =====================
 let MENU = [], editingMenuId = null;
 $('addMenuBtn').addEventListener('click', () => {
   editingMenuId = 'M'+Date.now(); // จองไอดีไว้ล่วงหน้า เผื่ออัปโหลดรูปก่อนกดบันทึก
-  ['mName','mPrice','mCat','mPhoto','mPhotoUrl'].forEach(id=>$(id).value='');
+  ['mName','mNameEn','mNameZh','mPrice','mCat','mPhoto','mPhotoUrl'].forEach(id=>$(id).value='');
   $('mStation').value='kitchen'; $('mPhotoFile').value=''; $('mPhotoPreview').innerHTML='🍽️';
   $('menuFormBox').style.display='block';
 });
@@ -323,7 +336,7 @@ $('cancelMenuBtn').addEventListener('click', () => $('menuFormBox').style.displa
 $('saveMenuBtn').addEventListener('click', async () => {
   const name = $('mName').value.trim(), price = Number($('mPrice').value), category = $('mCat').value.trim()||'อื่นๆ';
   if(!name || !price){ alert('กรุณาใส่ชื่อและราคา'); return; }
-  const data = { name, price, category, station: $('mStation').value, photoId: $('mPhoto').value.trim(), photoUrl: $('mPhotoUrl').value||'', active: true };
+  const data = { name, name_en: $('mNameEn').value.trim(), name_zh: $('mNameZh').value.trim(), price, category, station: $('mStation').value, photoId: $('mPhoto').value.trim(), photoUrl: $('mPhotoUrl').value||'', active: true };
   try {
     await setDoc(doc(db,'menu', editingMenuId || 'M'+Date.now()), data, {merge:true});
     $('menuFormBox').style.display='none'; loadMenu();
@@ -333,18 +346,22 @@ async function loadMenu(){
   const qs = await getDocs(collection(db,'menu'));
   MENU = []; qs.forEach(d=>MENU.push({id:d.id,...d.data()}));
   MENU.sort((a,b)=>a.name.localeCompare(b.name,'th'));
-  $('menuTable').innerHTML = MENU.map(m =>
-    '<tr><td>'+m.name+'</td><td>'+m.category+'</td><td>'+baht(m.price)+'</td>'+
+  $('menuTable').innerHTML = MENU.map(m => {
+    const photoSrc = resolvePhoto_(m);
+    const thumb = photoSrc
+      ? '<img src="'+photoSrc+'" style="width:44px;height:44px;object-fit:cover;border-radius:8px" onerror="this.replaceWith(Object.assign(document.createElement(\'span\'),{textContent:\'🍽️\'}))">'
+      : '<span style="font-size:22px">🍽️</span>';
+    return '<tr><td>'+thumb+'</td><td>'+m.name+'</td><td>'+m.category+'</td><td>'+baht(m.price)+'</td>'+
     '<td><span class="pill '+(m.active?'':'off')+'">'+(m.active?'ใช้งาน':'ปิด')+'</span></td>'+
-    '<td><button class="mini" data-e="'+m.id+'">แก้ไข</button><button class="mini" data-t="'+m.id+'">'+(m.active?'ปิด':'เปิด')+'</button><button class="mini" data-d="'+m.id+'">ลบ</button></td></tr>'
-  ).join('') || '<tr><td colspan="5" class="empty">ยังไม่มีเมนู — กด "นำเข้าข้อมูล" เพื่อดึงจากระบบเดิม หรือเพิ่มเอง</td></tr>';
+    '<td><button class="mini" data-e="'+m.id+'">แก้ไข</button><button class="mini" data-t="'+m.id+'">'+(m.active?'ปิด':'เปิด')+'</button><button class="mini" data-d="'+m.id+'">ลบ</button></td></tr>';
+  }).join('') || '<tr><td colspan="6" class="empty">ยังไม่มีเมนู — กด "นำเข้าข้อมูล" เพื่อดึงจากระบบเดิม หรือเพิ่มเอง</td></tr>';
   $('menuTable').querySelectorAll('[data-e]').forEach(b=>b.addEventListener('click', ()=>editMenu(b.dataset.e)));
   $('menuTable').querySelectorAll('[data-t]').forEach(b=>b.addEventListener('click', async ()=>{ const m=MENU.find(x=>x.id===b.dataset.t); await updateDoc(doc(db,'menu',m.id),{active:!m.active}); loadMenu(); }));
   $('menuTable').querySelectorAll('[data-d]').forEach(b=>b.addEventListener('click', async ()=>{ if(confirm('ลบเมนูนี้?')){ await deleteDoc(doc(db,'menu',b.dataset.d)); loadMenu(); } }));
 }
 function editMenu(id){
   const m = MENU.find(x=>x.id===id); editingMenuId = id;
-  $('mName').value=m.name; $('mPrice').value=m.price; $('mCat').value=m.category; $('mStation').value=m.station||'kitchen'; $('mPhoto').value=m.photoId||'';
+  $('mName').value=m.name; $('mNameEn').value=m.name_en||''; $('mNameZh').value=m.name_zh||''; $('mPrice').value=m.price; $('mCat').value=m.category; $('mStation').value=m.station||'kitchen'; $('mPhoto').value=m.photoId||'';
   $('mPhotoUrl').value = m.photoUrl||''; $('mPhotoFile').value='';
   const existingPhoto = m.photoUrl || (m.photoData && m.photoData.startsWith('data:') ? m.photoData : (m.photoId ? 'https://drive.google.com/thumbnail?id='+m.photoId+'&sz=w400' : ''));
   $('mPhotoPreview').innerHTML = existingPhoto ? '<img src="'+existingPhoto+'" style="width:100%;height:100%;object-fit:cover">' : '🍽️';
@@ -632,6 +649,34 @@ function generatePromptPayPayload_(type, rawNumber, amount){
 // ===================== แท็บ เก็บเงิน =====================
 let BILL_ORDERS = [], BILL_ITEMS = [], BILL_TOTAL = 0;
 
+async function loadPendingTables_(){
+  const box = $('pendingTablesList');
+  box.innerHTML = '<div class="empty">กำลังโหลด...</div>';
+  try {
+    const qs = await getDocs(collection(db,'orders'));
+    const byTable = {};
+    qs.forEach(d => {
+      const o = d.data();
+      if(o.paid) return; // จ่ายแล้ว ไม่นับ
+      if(!byTable[o.table]) byTable[o.table] = { total:0, count:0 };
+      byTable[o.table].total += (o.total || 0);
+      byTable[o.table].count += (o.items||[]).reduce((s,it)=>s+it.qty, 0);
+    });
+    const tables = Object.keys(byTable);
+    if(!tables.length){ box.innerHTML = '<div class="empty">ยังไม่มีโต๊ะที่มียอดค้างชำระ</div>'; return; }
+    tables.sort((a,b)=>a.localeCompare(b,'th',{numeric:true}));
+    box.innerHTML = tables.map(t =>
+      '<div class="pending-row" data-t="'+t+'"><span>🪑 โต๊ะ '+t+'</span><span>'+byTable[t].count+' รายการ · <span class="amt">'+baht(byTable[t].total)+'</span></span></div>'
+    ).join('');
+    box.querySelectorAll('.pending-row').forEach(r => r.addEventListener('click', () => {
+      $('billTableSelect').value = r.dataset.t;
+      loadBillForTable();
+      r.scrollIntoView({behavior:'smooth', block:'nearest'});
+    }));
+  } catch(e){ box.innerHTML = '<div class="empty">โหลดไม่สำเร็จ: '+e.message+'</div>'; }
+}
+$('refreshPendingBtn').addEventListener('click', loadPendingTables_);
+
 $('billTableSelect').addEventListener('change', loadBillForTable);
 
 async function loadBillForTable(){
@@ -703,6 +748,7 @@ async function closeBill(){
     await Promise.all(callsQs.docs.filter(d=>d.data().type==='bill').map(d => updateDoc(doc(db,'calls',d.id), {resolved:true})));
     alert('✓ ปิดบิลโต๊ะ '+table+' เรียบร้อยแล้ว');
     $('billTableSelect').value = ''; $('billContent').innerHTML = '';
+    loadPendingTables_();
   } catch(e){ alert('ปิดบิลไม่สำเร็จ: '+e.message); }
 }
 </script>

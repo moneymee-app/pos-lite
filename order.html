@@ -33,6 +33,9 @@ img{display:block}
 .hero-icons{display:flex;gap:10px}
 .icon-circle{width:42px;height:42px;border-radius:50%;background:var(--soft);display:flex;align-items:center;justify-content:center;font-size:19px;position:relative}
 .icon-circle .dot{position:absolute;top:2px;right:2px;width:11px;height:11px;border-radius:50%;background:var(--gold);display:none}
+.lang-switch{display:flex;background:var(--soft);border-radius:999px;padding:3px;gap:2px}
+.lang-opt{padding:8px 10px;font-size:12px;font-weight:700;border-radius:999px;color:var(--sub)}
+.lang-opt.active{background:var(--ink);color:#fff}
 
 /* ============ Sticky category bar ============ */
 .catbar{position:sticky;top:0;z-index:50;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:4px;padding:0 8px}
@@ -164,10 +167,15 @@ img{display:block}
 <!-- ===== Top bar ===== -->
 <div class="topbar" id="topbar">
   <button class="table-pill" id="tablePill">
-    โต๊ะ <span id="tableLabel">-</span>&nbsp;|&nbsp;คุณ <span id="nameLabel">-</span>
+    <span id="tableWord">โต๊ะ</span> <span id="tableLabel">-</span>&nbsp;|&nbsp;<span id="youWord">คุณ</span> <span id="nameLabel">-</span>
     <span class="chev">▼</span>
   </button>
   <div class="hero-icons">
+    <div class="lang-switch" id="langSwitch">
+      <button class="lang-opt" data-lang="th">TH</button>
+      <button class="lang-opt" data-lang="en">EN</button>
+      <button class="lang-opt" data-lang="zh">中</button>
+    </div>
     <button class="icon-circle" id="bellBtn" title="เรียกพนักงาน">🛎️</button>
     <button class="icon-circle" id="histBtn" title="รายการที่สั่ง">🧾<span class="dot" id="histDot"></span></button>
   </div>
@@ -190,7 +198,7 @@ img{display:block}
 
 <!-- ===== Floating cart bar ===== -->
 <button class="cartbar" id="cartBar">
-  <span>🛒 ตะกร้า · <span id="cartCount">0</span> รายการ</span>
+  <span><span id="cartBarLabel">🛒 ตะกร้า</span> · <span id="cartCount">0</span> <span id="cartItemsSuffix">รายการ</span></span>
   <span id="cartTotal">฿0</span>
 </button>
 
@@ -230,7 +238,7 @@ img{display:block}
     </div>
   </div>
   <div class="sheet-foot">
-    <button class="btn-main" id="addToCartBtn">เพิ่มลงตะกร้า · <span id="itemSum">฿0</span></button>
+    <button class="btn-main" id="addToCartBtn"><span id="addToCartLabel">เพิ่มลงตะกร้า</span> · <span id="itemSum">฿0</span></button>
   </div>
 </div>
 
@@ -262,7 +270,7 @@ img{display:block}
     <div class="empty-note">ยังไม่มีรายการที่สั่ง</div>
   </div>
   <div class="sheet-foot">
-    <div class="hist-foot-count"><span><span id="histCount">0</span> รายการ</span><span id="histTotal">฿0.00</span></div>
+    <div class="hist-foot-count"><span><span id="histCount">0</span> <span id="histItemsSuffix">รายการ</span></span><span id="histTotal">฿0.00</span></div>
     <button class="btn-outline-gold" id="billBtn">🧾 บิลค่าอาหาร — เรียกพนักงานเก็บเงิน</button>
   </div>
 </div>
@@ -324,7 +332,7 @@ function openNameSheet(){ $('nameInput').value = CUST_NAME; openSheet('nameSheet
 $('tablePill').addEventListener('click', openNameSheet);
 $('saveNameBtn').addEventListener('click', () => {
   const v = $('nameInput').value.trim();
-  if(!v){ toast('กรุณาใส่ชื่อก่อนนะครับ'); return; }
+  if(!v){ toast(t('toast_name_required')); return; }
   CUST_NAME = v; localStorage.setItem('sso_name', v); applyName(); closeSheets();
 });
 
@@ -351,6 +359,100 @@ function applyTheme_(key){
   r.setProperty('--line', t.line); r.setProperty('--soft', t.soft);
   r.setProperty('--gold', t.accent); r.setProperty('--gold-soft', t.soft);
 }
+
+// ===================== ภาษา (ไทย / English / 中文) =====================
+const I18N = {
+  th: {
+    table:'โต๊ะ', you:'คุณ', search_ph:'ค้นหาเมนู…', all_categories:'หมวดหมู่ทั้งหมด', search_cat_ph:'ค้นหาหมวดหมู่',
+    note_label:'หมายเหตุถึงร้าน (ถ้ามี)', note_ph:'เช่น ไม่เผ็ด ไม่ใส่ผัก', add_to_cart:'เพิ่มลงตะกร้า',
+    cart_title:'ตะกร้าของฉัน', cart_empty:'ตะกร้าว่าง', cart_total:'รวมทั้งหมด', send_order:'ส่งออเดอร์เข้าครัว',
+    cart_bar:'🛒 ตะกร้า', items_suffix:'รายการ', hist_title:'รายการที่สั่ง', hist_time_prefix:'ข้อมูล ณ เวลา ',
+    hist_empty:'ยังไม่มีรายการที่สั่ง<br>เลือกเมนูอร่อยๆ ได้เลยครับ 😊', bill_btn:'🧾 บิลค่าอาหาร — เรียกพนักงานเก็บเงิน',
+    name_title:'ชื่อของคุณ', name_desc:'ใช้แสดงในรายการสั่งอาหาร เพื่อให้รู้ว่าใครสั่งเมนูไหน', name_ph:'เช่น A, บอล, แนน', save_name:'บันทึกชื่อ',
+    blocked_title:'กรุณาสแกน QR Code ที่โต๊ะ', blocked_desc:'หน้านี้ใช้สั่งอาหารจากโต๊ะในร้านเท่านั้น<br>สแกน QR Code ที่ติดอยู่บนโต๊ะของคุณเพื่อเริ่มสั่งอาหารได้เลยครับ',
+    ordered_by:'สั่งโดย: ', status_new:'รอคิว', status_preparing:'กำลังทำ', status_ready:'พร้อมเสิร์ฟ', status_served:'เสิร์ฟแล้ว',
+    no_menu:'ยังไม่มีเมนูในระบบ', search_results:'ผลการค้นหา', no_search_results:'ไม่พบเมนูที่ค้นหา',
+    toast_name_required:'กรุณาใส่ชื่อก่อนนะครับ', toast_added_prefix:'✓ เพิ่ม ', toast_added_suffix:' ลงตะกร้าแล้ว',
+    toast_name_before_order:'ใส่ชื่อก่อนสั่งนิดนึงนะครับ', toast_order_sent:'✓ ส่งออเดอร์เข้าครัวแล้ว รอสักครู่นะครับ 🙏',
+    toast_order_failed:'❌ สั่งไม่สำเร็จ: ', toast_cannot_edit:'ครัวเริ่มทำแล้ว แก้ไขไม่ได้ — เรียกพนักงานได้ครับ',
+    toast_cancel_order:'✓ ยกเลิกออเดอร์แล้ว', toast_edit_order:'✓ แก้ไขออเดอร์แล้ว', toast_edit_failed:'❌ แก้ไขไม่สำเร็จ: ',
+    toast_call_staff:'🛎️ เรียกพนักงานแล้ว รอสักครู่นะครับ', toast_call_failed:'❌ ไม่สำเร็จ: ',
+    toast_no_items:'ยังไม่มีรายการอาหารครับ', toast_bill_requested:'🧾 แจ้งพนักงานแล้ว กำลังนำบิลไปที่โต๊ะครับ',
+  },
+  en: {
+    table:'Table', you:'You', search_ph:'Search menu…', all_categories:'All categories', search_cat_ph:'Search categories',
+    note_label:'Note to kitchen (optional)', note_ph:'e.g. not spicy, no veggies', add_to_cart:'Add to cart',
+    cart_title:'My cart', cart_empty:'Cart is empty', cart_total:'Total', send_order:'Send order to kitchen',
+    cart_bar:'🛒 Cart', items_suffix:'items', hist_title:'Your orders', hist_time_prefix:'As of ',
+    hist_empty:'No orders yet<br>Pick something tasty! 😊', bill_btn:'🧾 Bill — call staff for payment',
+    name_title:'Your name', name_desc:'Shown on the order list so staff know who ordered what', name_ph:'e.g. A, John', save_name:'Save name',
+    blocked_title:'Please scan the table QR code', blocked_desc:'This page is for ordering from a table in the restaurant only.<br>Scan the QR code on your table to start ordering.',
+    ordered_by:'Ordered by: ', status_new:'Queued', status_preparing:'Preparing', status_ready:'Ready to serve', status_served:'Served',
+    no_menu:'No menu items yet', search_results:'Search results for', no_search_results:'No matching items',
+    toast_name_required:'Please enter your name first', toast_added_prefix:'✓ Added ', toast_added_suffix:' to cart',
+    toast_name_before_order:'Please enter your name before ordering', toast_order_sent:'✓ Order sent to kitchen. Please wait 🙏',
+    toast_order_failed:'❌ Order failed: ', toast_cannot_edit:'Kitchen already started — can\'t edit. Please call staff.',
+    toast_cancel_order:'✓ Order cancelled', toast_edit_order:'✓ Order updated', toast_edit_failed:'❌ Update failed: ',
+    toast_call_staff:'🛎️ Staff called. Please wait a moment', toast_call_failed:'❌ Failed: ',
+    toast_no_items:'No food items yet', toast_bill_requested:'🧾 Staff notified, bringing your bill',
+  },
+  zh: {
+    table:'桌号', you:'您', search_ph:'搜索菜单…', all_categories:'所有分类', search_cat_ph:'搜索分类',
+    note_label:'给厨房的备注（可选）', note_ph:'例如：不辣，不加蔬菜', add_to_cart:'加入购物车',
+    cart_title:'我的购物车', cart_empty:'购物车是空的', cart_total:'总计', send_order:'发送订单到厨房',
+    cart_bar:'🛒 购物车', items_suffix:'件', hist_title:'我的订单', hist_time_prefix:'更新时间 ',
+    hist_empty:'还没有订单<br>快选些美味的菜吧 😊', bill_btn:'🧾 账单 — 呼叫服务员结账',
+    name_title:'您的姓名', name_desc:'将显示在订单列表中，方便员工知道是谁点的餐', name_ph:'例如：小明', save_name:'保存姓名',
+    blocked_title:'请扫描桌上的二维码', blocked_desc:'此页面仅供店内桌位点餐使用。<br>请扫描您桌上的二维码开始点餐。',
+    ordered_by:'点餐人：', status_new:'排队中', status_preparing:'制作中', status_ready:'可以上菜', status_served:'已上菜',
+    no_menu:'暂无菜单', search_results:'搜索结果', no_search_results:'未找到相关菜品',
+    toast_name_required:'请先输入您的姓名', toast_added_prefix:'✓ 已将 ', toast_added_suffix:' 加入购物车',
+    toast_name_before_order:'下单前请先输入姓名', toast_order_sent:'✓ 订单已发送到厨房，请稍候 🙏',
+    toast_order_failed:'❌ 下单失败：', toast_cannot_edit:'厨房已开始制作，无法修改 — 请呼叫服务员',
+    toast_cancel_order:'✓ 订单已取消', toast_edit_order:'✓ 订单已更新', toast_edit_failed:'❌ 更新失败：',
+    toast_call_staff:'🛎️ 已呼叫服务员，请稍候', toast_call_failed:'❌ 失败：',
+    toast_no_items:'暂无餐点', toast_bill_requested:'🧾 已通知服务员，正在为您送上账单',
+  },
+};
+let CURRENT_LANG = localStorage.getItem('sso_lang') || 'th';
+function t(key){ return (I18N[CURRENT_LANG] && I18N[CURRENT_LANG][key]) || I18N.th[key] || key; }
+function menuName_(m){
+  if(!m) return '';
+  if(CURRENT_LANG === 'en' && m.name_en) return m.name_en;
+  if(CURRENT_LANG === 'zh' && m.name_zh) return m.name_zh;
+  return m.name;
+}
+function applyLangUI_(){
+  document.querySelectorAll('.lang-opt').forEach(b => b.classList.toggle('active', b.dataset.lang === CURRENT_LANG));
+  $('tableWord').textContent = t('table');
+  $('youWord').textContent = t('you');
+  $('searchInput').placeholder = t('search_ph');
+  $('catSearchInput').placeholder = t('search_cat_ph');
+  document.querySelector('#catSheet .sheet-title').textContent = t('all_categories');
+  $('itemNote').placeholder = t('note_ph');
+  document.querySelector('#itemSheet .note-label').textContent = t('note_label');
+  $('addToCartLabel').textContent = t('add_to_cart');
+  document.querySelector('#cartSheet .sheet-title').textContent = t('cart_title');
+  document.querySelector('#cartSheet .total-row span:first-child').textContent = t('cart_total');
+  $('sendOrderBtn').textContent = t('send_order');
+  document.querySelector('#histSheet .sheet-title').textContent = t('hist_title');
+  $('billBtn').textContent = t('bill_btn');
+  $('cartBarLabel').textContent = t('cart_bar');
+  $('cartItemsSuffix').textContent = t('items_suffix');
+  $('histItemsSuffix').textContent = t('items_suffix');
+  document.querySelector('#nameSheet .sheet-title').textContent = t('name_title');
+  document.querySelector('#nameSheet .sheet-body div').textContent = t('name_desc');
+  $('nameInput').placeholder = t('name_ph');
+  $('saveNameBtn').textContent = t('save_name');
+  document.querySelector('#blockedScreen h2').textContent = t('blocked_title');
+  document.querySelector('#blockedScreen p').innerHTML = t('blocked_desc');
+  renderMenu($('searchInput').value.trim());
+  refreshCartUI();
+  renderHist();
+}
+document.querySelectorAll('.lang-opt').forEach(b => b.addEventListener('click', () => {
+  CURRENT_LANG = b.dataset.lang; localStorage.setItem('sso_lang', CURRENT_LANG); applyLangUI_();
+}));
 
 // ===================== ชื่อร้าน + Hero + ธีม (จาก settings/shop) =====================
 (async () => {
@@ -395,16 +497,17 @@ function cardHtml(m){
   const inCart = CART.filter(c=>c.name===m.name).reduce((s,c)=>s+c.qty,0);
   return '<div class="card" data-name="'+m.name+'">'+
     '<div class="imgbox">'+img+(inCart?'<div class="qty-chip">'+inCart+'</div>':'')+'</div>'+
-    '<div class="nm">'+m.name+((m.category||'').includes('สุรา')||(m.category||'').includes('เหล้า')||(m.category||'').includes('เบียร์')?' 🔞':'')+'</div>'+
+    '<div class="nm">'+menuName_(m)+((m.category||'').includes('สุรา')||(m.category||'').includes('เหล้า')||(m.category||'').includes('เบียร์')?' 🔞':'')+'</div>'+
     '<div class="pr">'+baht(m.price)+'</div></div>';
 }
 function renderMenu(filter=''){
   const c = $('content');
-  if(!MENU.length){ c.innerHTML = '<div class="empty-note">ยังไม่มีเมนูในระบบ</div>'; return; }
+  if(!MENU.length){ c.innerHTML = '<div class="empty-note">'+t('no_menu')+'</div>'; return; }
   if(filter){
-    const hits = MENU.filter(m=>m.name.includes(filter));
-    c.innerHTML = '<div class="sec-title">ผลการค้นหา "'+filter+'"</div>'+
-      (hits.length ? '<div class="grid">'+hits.map(cardHtml).join('')+'</div>' : '<div class="empty-note">ไม่พบเมนูที่ค้นหา</div>');
+    const f = filter.toLowerCase();
+    const hits = MENU.filter(m=>m.name.includes(filter) || (m.name_en&&m.name_en.toLowerCase().includes(f)) || (m.name_zh&&m.name_zh.includes(filter)));
+    c.innerHTML = '<div class="sec-title">'+t('search_results')+' "'+filter+'"</div>'+
+      (hits.length ? '<div class="grid">'+hits.map(cardHtml).join('')+'</div>' : '<div class="empty-note">'+t('no_search_results')+'</div>');
   } else {
     c.innerHTML = CATS.map(cat =>
       '<div class="sec-title" id="sec-'+encodeURIComponent(cat)+'">'+cat+'</div>'+
@@ -450,7 +553,7 @@ let CURRENT_ITEM = null, CURRENT_QTY = 1;
 function openItem(name){
   const m = MENU.find(x=>x.name===name); if(!m) return;
   CURRENT_ITEM = m; CURRENT_QTY = 1;
-  $('itemNm').textContent = m.name;
+  $('itemNm').textContent = menuName_(m);
   $('itemPr').textContent = baht(m.price);
   $('itemNote').value = '';
   $('itemImg').innerHTML = resolvePhoto_(m)
@@ -470,7 +573,7 @@ $('addToCartBtn').addEventListener('click', ()=>{
   if(same) same.qty += CURRENT_QTY;
   else CART.push({name:CURRENT_ITEM.name, price:CURRENT_ITEM.price, qty:CURRENT_QTY, note});
   closeSheets(); refreshCartUI();
-  toast('✓ เพิ่ม '+CURRENT_ITEM.name+' ลงตะกร้าแล้ว');
+  toast(t('toast_added_prefix')+menuName_(CURRENT_ITEM)+t('toast_added_suffix'));
 });
 
 function refreshCartUI(){
@@ -486,13 +589,13 @@ $('cartBar').addEventListener('click', ()=>{ renderCartSheet(); openSheet('cartS
 
 function renderCartSheet(){
   const body = $('cartBody');
-  if(!CART.length){ body.innerHTML = '<div class="empty-note">ตะกร้าว่าง</div>'; }
+  if(!CART.length){ body.innerHTML = '<div class="empty-note">'+t('cart_empty')+'</div>'; }
   else body.innerHTML = CART.map((c,i)=>{
     const m = MENU.find(x=>x.name===c.name);
     const img = resolvePhoto_(m)
       ? '<img src="'+resolvePhoto_(m)+'" onerror="this.replaceWith(Object.assign(document.createElement(\'span\'),{textContent:\'🍽️\'}))">' : '🍽️';
     return '<div class="cart-row"><div class="thumb">'+img+'</div>'+
-      '<div class="info"><div class="nm">'+c.name+'</div>'+(c.note?'<div class="nt">📝 '+c.note+'</div>':'')+
+      '<div class="info"><div class="nm">'+menuName_(m)+'</div>'+(c.note?'<div class="nt">📝 '+c.note+'</div>':'')+
       '<div class="mini-qty"><button data-act="minus" data-i="'+i+'">−</button><span>'+c.qty+'</span><button data-act="plus" data-i="'+i+'">＋</button></div></div>'+
       '<div class="pr">'+baht(c.qty*c.price)+'</div></div>';
   }).join('');
@@ -511,7 +614,7 @@ function renderCartSheet(){
 const stationOf = name => { const m = MENU.find(x=>x.name===name); return m ? (m.station||'kitchen') : 'kitchen'; };
 $('sendOrderBtn').addEventListener('click', async ()=>{
   if(!CART.length) return;
-  if(!CUST_NAME){ closeSheets(); openNameSheet(); toast('ใส่ชื่อก่อนสั่งนิดนึงนะครับ'); return; }
+  if(!CUST_NAME){ closeSheets(); openNameSheet(); toast(t('toast_name_before_order')); return; }
   $('sendOrderBtn').disabled = true;
   try {
     const items = CART.map(c=>({name:c.name, qty:c.qty, price:c.price, station:stationOf(c.name), note:c.note||''}));
@@ -521,8 +624,8 @@ $('sendOrderBtn').addEventListener('click', async ()=>{
       orderedBy: 'คุณ '+CUST_NAME, createdAt: serverTimestamp()
     });
     CART = []; refreshCartUI(); closeSheets();
-    toast('✓ ส่งออเดอร์เข้าครัวแล้ว รอสักครู่นะครับ 🙏');
-  } catch(e){ toast('❌ สั่งไม่สำเร็จ: '+e.message); }
+    toast(t('toast_order_sent'));
+  } catch(e){ toast(t('toast_order_failed')+e.message); }
   $('sendOrderBtn').disabled = false;
 });
 
@@ -542,15 +645,17 @@ $('histBtn').addEventListener('click', ()=>{ renderHist(); openSheet('histSheet'
 
 function renderHist(){
   const now = new Date();
-  $('histTime').textContent = 'ข้อมูล ณ เวลา '+now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+  $('histTime').textContent = t('hist_time_prefix')+now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
   const body = $('histBody');
   if(!ORDERS.length){
-    body.innerHTML = '<div class="empty-note">ยังไม่มีรายการที่สั่ง<br>เลือกเมนูอร่อยๆ ได้เลยครับ 😊</div>';
+    body.innerHTML = '<div class="empty-note">'+t('hist_empty')+'</div>';
     $('histCount').textContent = '0'; $('histTotal').textContent = '฿0.00'; return;
   }
+  const STATUS_CLASS = { new:'new', preparing:'preparing', ready:'ready', served:'served' };
   let count = 0, total = 0, html = '';
   ORDERS.forEach(o => {
-    const st = STATUS_TH[o.status] || ['รอคิว','new'];
+    const stLabel = t('status_'+(STATUS_CLASS[o.status] ? o.status : 'new'));
+    const stClass = STATUS_CLASS[o.status] || 'new';
     const editable = o.status === 'new';
     o.items.forEach((it, idx) => {
       count += it.qty; total += it.qty * it.price;
@@ -558,12 +663,12 @@ function renderHist(){
       const img = resolvePhoto_(m)
         ? '<img src="'+resolvePhoto_(m)+'" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement(\'span\'),{textContent:\'🍽️\'}))">' : '🍽️';
       html += '<div class="hist-row"><div class="thumb">'+img+'</div>'+
-        '<div class="mid"><div class="nm">'+it.name+'</div>'+
+        '<div class="mid"><div class="nm">'+(m ? menuName_(m) : it.name)+'</div>'+
         (it.note?'<div class="hist-note">📝 '+it.note+'</div>':'')+
         '<div class="qty">x '+it.qty+'</div>'+
-        '<div class="by">สั่งโดย: '+(o.orderedBy||'-').replace('คุณ ','')+'</div></div>'+
+        '<div class="by">'+t('ordered_by')+(o.orderedBy||'-').replace('คุณ ','')+'</div></div>'+
         '<div class="right"><div class="pr">'+baht(it.qty*it.price)+'</div>'+
-        '<div class="badge '+st[1]+'">'+st[0]+'</div>'+
+        '<div class="badge '+stClass+'">'+stLabel+'</div>'+
         (editable
           ? '<div class="hist-edit"><button data-e="minus" data-o="'+o.id+'" data-i="'+idx+'">−</button>'+
             '<button data-e="plus" data-o="'+o.id+'" data-i="'+idx+'">＋</button>'+
@@ -582,7 +687,7 @@ function renderHist(){
 // แก้จำนวน / ลบ — ได้เฉพาะออเดอร์สถานะ new (ครัวยังไม่กด "เริ่มทำ")
 async function editOrderItem(orderId, idx, act){
   const o = ORDERS.find(x=>x.id===orderId);
-  if(!o || o.status!=='new'){ toast('ครัวเริ่มทำแล้ว แก้ไขไม่ได้ — เรียกพนักงานได้ครับ'); return; }
+  if(!o || o.status!=='new'){ toast(t('toast_cannot_edit')); return; }
   const items = o.items.map(i=>({...i}));
   if(act==='plus') items[idx].qty++;
   if(act==='minus') items[idx].qty--;
@@ -591,32 +696,33 @@ async function editOrderItem(orderId, idx, act){
   try {
     if(!cleaned.length){
       await deleteDoc(doc(db,'orders',orderId));
-      toast('✓ ยกเลิกออเดอร์แล้ว');
+      toast(t('toast_cancel_order'));
     } else {
       const total = cleaned.reduce((s,i)=>s+i.qty*i.price,0);
       await updateDoc(doc(db,'orders',orderId), { items: cleaned, total });
-      toast('✓ แก้ไขออเดอร์แล้ว');
+      toast(t('toast_edit_order'));
     }
-  } catch(e){ toast('❌ แก้ไขไม่สำเร็จ: '+e.message); }
+  } catch(e){ toast(t('toast_edit_failed')+e.message); }
 }
 
 // ===================== เรียกพนักงาน + ขอเก็บเงิน =====================
 $('bellBtn').addEventListener('click', async ()=>{
   try {
     await setDoc(doc(db,'calls','C'+Date.now()), { table: TABLE, createdAt: serverTimestamp(), resolved:false });
-    toast('🛎️ เรียกพนักงานแล้ว รอสักครู่นะครับ');
-  } catch(e){ toast('❌ ไม่สำเร็จ: '+e.message); }
+    toast(t('toast_call_staff'));
+  } catch(e){ toast(t('toast_call_failed')+e.message); }
 });
 $('billBtn').addEventListener('click', async ()=>{
-  if(!ORDERS.length){ toast('ยังไม่มีรายการอาหารครับ'); return; }
+  if(!ORDERS.length){ toast(t('toast_no_items')); return; }
   const total = ORDERS.reduce((s,o)=>s+o.items.reduce((x,i)=>x+i.qty*i.price,0),0);
   try {
     await setDoc(doc(db,'calls','C'+Date.now()), { table: TABLE, type:'bill', total, createdAt: serverTimestamp(), resolved:false });
-    toast('🧾 แจ้งพนักงานแล้ว กำลังนำบิลไปที่โต๊ะครับ');
-  } catch(e){ toast('❌ ไม่สำเร็จ: '+e.message); }
+    toast(t('toast_bill_requested'));
+  } catch(e){ toast(t('toast_call_failed')+e.message); }
 });
 
 // ===================== เริ่มทำงาน =====================
+applyLangUI_();
 if(TABLE){
   loadMenu().catch(e=>{ $('content').innerHTML = '<div class="empty-note">โหลดเมนูไม่สำเร็จ: '+e.message+'</div>'; });
   if(!CUST_NAME) setTimeout(openNameSheet, 600);
