@@ -237,6 +237,14 @@ td:last-child{white-space:nowrap}
           <div class="import-log" id="importLog"></div>
         </div>
       </div>
+      <div class="card">
+        <div class="row-head"><h3>🔧 ซ่อมข้อมูลเก่า — บิลที่ปิดแล้วแต่ยอดขายไม่เข้า Sheet</h3></div>
+        <div class="import-box">
+          <p>ใช้ครั้งเดียวสำหรับบิลที่ปิดไปแล้วก่อนหน้านี้ (ตอนนั้นระบบยังไม่บังคับสถานะ "เสิร์ฟแล้ว" ตอนปิดบิล เลยไม่ถูกนับเป็นยอดขาย) — กดปุ่มนี้เพื่อแก้ไขให้ถูกต้องย้อนหลัง ปลอดภัย ไม่กระทบบิลใหม่ที่ปิดไปถูกต้องแล้ว</p>
+          <button class="btn gold" id="repairBtn">🔧 ซ่อมข้อมูลย้อนหลัง</button>
+          <div class="import-log" id="repairLog"></div>
+        </div>
+      </div>
     </div>
 
   </div>
@@ -630,6 +638,25 @@ $('importBtn').addEventListener('click', async () => {
   $('importBtn').disabled = false;
 });
 
+// ===================== ซ่อมข้อมูลเก่า: บิลที่จ่ายแล้วแต่สถานะยังไม่เป็น served =====================
+function repairLog(msg){ const el=$('repairLog'); el.style.display='block'; el.textContent += msg+'\n'; el.scrollTop = el.scrollHeight; }
+$('repairBtn').addEventListener('click', async () => {
+  $('repairBtn').disabled = true; $('repairLog').textContent = '';
+  try {
+    repairLog('🔍 กำลังตรวจสอบออเดอร์ทั้งหมด...');
+    const qs = await getDocs(collection(db,'orders'));
+    const broken = [];
+    qs.forEach(d => { const o = d.data(); if(o.paid && o.status !== 'served') broken.push(d.id); });
+    if(!broken.length){ repairLog('✓ ไม่พบข้อมูลที่ต้องซ่อม ทุกอย่างถูกต้องแล้ว'); }
+    else {
+      repairLog('พบ '+broken.length+' ออเดอร์ที่จ่ายแล้วแต่ยังไม่นับเป็นยอดขาย — กำลังแก้ไข...');
+      await Promise.all(broken.map(id => updateDoc(doc(db,'orders',id), {status:'served'})));
+      repairLog('✓ ซ่อมเสร็จแล้ว '+broken.length+' รายการ — รอบ sync ถัดไป (หรือรัน syncAll เอง) ยอดขายจะขึ้นครบใน Google Sheet');
+    }
+  } catch(e){ repairLog('❌ ผิดพลาด: '+e.message); }
+  $('repairBtn').disabled = false;
+});
+
 // ===================== สร้าง QR PromptPay (มาตรฐาน EMV ของไทย) =====================
 function crc16_(str){
   let crc = 0xFFFF;
@@ -755,7 +782,9 @@ async function closeBill(){
   const table = $('billTableSelect').value;
   if(!confirm('ยืนยันปิดบิลโต๊ะ '+table+'? ออเดอร์ทั้งหมดของโต๊ะนี้จะถูกทำเครื่องหมายว่าจ่ายแล้ว')) return;
   try {
-    await Promise.all(BILL_ORDERS.map(o => updateDoc(doc(db,'orders',o.id), { paid:true, paidAt: serverTimestamp() })));
+    // ปิดบิล = ลูกค้าจ่ายเงินแล้ว = ถือว่าเสิร์ฟครบแล้วแน่นอน จึงบังคับ status เป็น served ไปพร้อมกัน
+    // (กันเคสพนักงานลืมกด "เสิร์ฟแล้ว" ในจอครัวให้ครบทุกจาน ทำให้ยอดขายไม่ถูกนับใน Google Sheet)
+    await Promise.all(BILL_ORDERS.map(o => updateDoc(doc(db,'orders',o.id), { paid:true, paidAt: serverTimestamp(), status:'served' })));
     // เคลียร์แจ้งเตือน "ขอเก็บเงิน" ของโต๊ะนี้ออกจากหน้าแจ้งเตือนด้วย
     const callsQs = await getDocs(query(collection(db,'calls'), where('table','==',table), where('resolved','==',false)));
     await Promise.all(callsQs.docs.filter(d=>d.data().type==='bill').map(d => updateDoc(doc(db,'calls',d.id), {resolved:true})));
