@@ -329,11 +329,29 @@ function closeSheets(){ $('mask').classList.remove('open'); SHEETS.forEach(s=>$(
 $('mask').addEventListener('click', closeSheets);
 document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click', closeSheets));
 
+// ===================== ธีมสี (พื้นหลังยังขาวสว่างเหมือนเดิม เปลี่ยนแค่โทนตัวหนังสือ/เส้น/สีเน้น) =====================
+const THEMES = {
+  navy:    { label:'🔵 Navy',     ink:'#1A2D42', sub:'#4A5A70', line:'#C0C8CA', soft:'#EEF1F2', accent:'#2E4156' },
+  forest:  { label:'🟢 Forest',   ink:'#0B2B26', sub:'#235347', line:'#B9D6C7', soft:'#EAF5EE', accent:'#163832' },
+  plum:    { label:'🟣 Plum',     ink:'#2B124C', sub:'#522B5B', line:'#DFB6B2', soft:'#FDF2EF', accent:'#854F6C' },
+  lavender:{ label:'💜 Lavender', ink:'#49225B', sub:'#6E3482', line:'#E7DBEF', soft:'#FBF6FD', accent:'#A56ABD' },
+  peach:   { label:'🍑 Peach',    ink:'#7A3B2E', sub:'#B5634A', line:'#FBD8C0', soft:'#FFF3E9', accent:'#F3B5A0' },
+  rose:    { label:'🌹 Rose',     ink:'#4C1D3D', sub:'#852E4E', line:'#FBC4B9', soft:'#FFF1EC', accent:'#DC586D' },
+};
+function applyTheme_(key){
+  const t = THEMES[key] || THEMES.navy;
+  const r = document.documentElement.style;
+  r.setProperty('--ink', t.ink); r.setProperty('--sub', t.sub);
+  r.setProperty('--line', t.line); r.setProperty('--soft', t.soft);
+  r.setProperty('--gold', t.accent); r.setProperty('--gold-soft', t.soft);
+}
+
 // ===================== ชื่อร้าน (ใช้ตั้งชื่อแท็บเบราว์เซอร์เฉยๆ ไม่มี Hero ให้โชว์แล้ว) =====================
 (async () => {
   try {
     const s = await getDoc(doc(db,'settings','shop'));
     if(s.exists() && s.data().name){ document.title = s.data().name+' — สั่งอาหาร'; }
+    if(s.exists() && s.data().themeCustomer){ applyTheme_(s.data().themeCustomer); }
   } catch(e){}
 })();
 

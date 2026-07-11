@@ -57,6 +57,18 @@ td{padding:10px 8px;border-bottom:1px solid var(--soft)}
 .import-box{border:1.5px dashed var(--gold);border-radius:12px;padding:18px;background:#FFFBEB}
 .import-box p{font-size:13.5px;color:var(--sub);line-height:1.6;margin-bottom:12px}
 .import-log{background:#111827;color:#D1FAE5;font-size:12.5px;border-radius:8px;padding:12px;margin-top:12px;max-height:200px;overflow-y:auto;font-family:monospace;display:none;white-space:pre-wrap}
+
+.bill-item{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--soft);font-size:14px}
+.bill-item .n{font-weight:600}
+.bill-item .nt{font-size:12px;color:var(--sub)}
+.bill-total{display:flex;justify-content:space-between;font-size:18px;font-weight:700;padding:14px 0;border-top:2px solid var(--ink);margin-top:6px}
+.bill-actions{display:flex;gap:10px;margin-top:14px}
+.pp-default{color:var(--green);font-weight:700}
+
+.theme-label{font-size:13px;color:var(--sub);margin-bottom:8px;font-weight:600}
+.theme-row{display:flex;flex-wrap:wrap;gap:10px}
+.swatch{width:56px;height:56px;border-radius:12px;border:2.5px solid transparent;cursor:pointer;display:flex;align-items:flex-end;justify-content:center;padding-bottom:4px;font-size:16px}
+.swatch.selected{border-color:var(--ink)}
 </style>
 </head>
 <body>
@@ -78,6 +90,7 @@ td{padding:10px 8px;border-bottom:1px solid var(--soft)}
     <button class="tab active" data-p="notif">🔔 แจ้งเตือน</button>
     <button class="tab" data-p="menu">🍽️ เมนู</button>
     <button class="tab" data-p="tables">🪑 โต๊ะ</button>
+    <button class="tab" data-p="billing">💰 เก็บเงิน</button>
     <button class="tab" data-p="shop">🏪 ตั้งค่าร้าน</button>
     <button class="tab" data-p="import">📥 นำเข้าข้อมูล</button>
   </div>
@@ -128,12 +141,42 @@ td{padding:10px 8px;border-bottom:1px solid var(--soft)}
       </div>
     </div>
 
+    <!-- เก็บเงิน -->
+    <div class="panel" id="p-billing">
+      <div class="card">
+        <div class="row-head"><h3>เลือกโต๊ะเพื่อเก็บเงิน</h3></div>
+        <div class="form-grid">
+          <div class="full"><label>โต๊ะ</label><select id="billTableSelect"><option value="">-- เลือกโต๊ะ --</option></select></div>
+        </div>
+        <div id="billContent"></div>
+      </div>
+    </div>
+
     <!-- ตั้งค่าร้าน -->
     <div class="panel" id="p-shop">
       <div class="card">
         <div class="row-head"><h3>ชื่อร้าน</h3></div>
         <div class="form-grid"><div class="full"><label>ชื่อร้าน (แสดงบนหน้าลูกค้า)</label><input id="shopName"></div></div>
         <button class="btn" id="saveShopBtn">บันทึก</button>
+      </div>
+      <div class="card">
+        <div class="row-head"><h3>บัญชีรับเงิน (PromptPay) — สูงสุด 4 บัญชี</h3><button class="btn" id="addPPBtn">+ เพิ่มบัญชี</button></div>
+        <div id="ppFormBox" style="display:none">
+          <div class="form-grid">
+            <div><label>ชื่อเรียกบัญชี</label><input id="ppLabel" placeholder="เช่น บัญชีร้าน 1"></div>
+            <div><label>ประเภท</label><select id="ppType"><option value="phone">เบอร์โทรศัพท์</option><option value="citizen">เลขบัตรประชาชน</option></select></div>
+            <div class="full"><label>หมายเลข</label><input id="ppNumber" placeholder="เช่น 0812345678"></div>
+          </div>
+          <button class="btn" id="savePPBtn">บันทึก</button>
+          <button class="btn ghost" id="cancelPPBtn">ยกเลิก</button>
+        </div>
+        <table><thead><tr><th>ชื่อเรียก</th><th>ประเภท</th><th>หมายเลข</th><th>ค่าเริ่มต้น</th><th></th></tr></thead><tbody id="ppTable"></tbody></table>
+      </div>
+      <div class="card">
+        <div class="row-head"><h3>🎨 ธีมสี — ตั้งแยกได้แต่ละหน้า</h3></div>
+        <div id="themePickerCustomer"></div>
+        <div id="themePickerKitchen" style="margin-top:18px"></div>
+        <div id="themePickerAdmin" style="margin-top:18px"></div>
       </div>
     </div>
 
@@ -155,7 +198,7 @@ td{padding:10px 8px;border-bottom:1px solid var(--soft)}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, query, where, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // ===================== ระบบใหม่ (pos-lite) =====================
 const firebaseConfig = {
@@ -182,7 +225,7 @@ $('logoutBtn').addEventListener('click', () => signOut(auth));
 onAuthStateChanged(auth, user => {
   $('loginScreen').style.display = user ? 'none' : 'block';
   $('app').style.display = user ? 'block' : 'none';
-  if(user){ loadMenu(); loadTables(); loadShop(); listenNotif(); }
+  if(user){ loadMenu(); loadTables(); loadShop(); listenNotif(); loadPromptPay(); loadThemes(); }
 });
 
 // ===================== แท็บ =====================
@@ -250,6 +293,12 @@ async function loadTables(){
     $('tableFormBox').style.display='block';
   }));
   $('tableTable').querySelectorAll('[data-d]').forEach(b=>b.addEventListener('click', async ()=>{ if(confirm('ลบโต๊ะนี้?')){ await deleteDoc(doc(db,'tables',b.dataset.d)); loadTables(); } }));
+
+  // อัปเดต dropdown เลือกโต๊ะในแท็บ "เก็บเงิน" ด้วย ทุกครั้งที่โต๊ะเปลี่ยนแปลง
+  const prevSelected = $('billTableSelect').value;
+  $('billTableSelect').innerHTML = '<option value="">-- เลือกโต๊ะ --</option>' +
+    TABLES.map(t => '<option value="'+(t.name||t.id)+'">โต๊ะ '+(t.name||t.id)+'</option>').join('');
+  if(prevSelected) $('billTableSelect').value = prevSelected;
 }
 
 // ===================== ตั้งค่าร้าน =====================
@@ -260,6 +309,103 @@ $('saveShopBtn').addEventListener('click', async () => {
   try { await setDoc(doc(db,'settings','shop'), {name: $('shopName').value.trim()}, {merge:true}); alert('✓ บันทึกแล้ว'); }
   catch(e){ alert('บันทึกไม่สำเร็จ: '+e.message); }
 });
+
+// ===================== ธีมสี — ตั้งแยกได้ 3 หน้า (ลูกค้า/ครัว/แอดมิน) =====================
+// พื้นหลังหลักยังคงสว่างเหมือนเดิมทุกธีม เปลี่ยนแค่โทนตัวหนังสือ/เส้น/สีเน้น
+const THEMES = {
+  navy:    { label:'🔵 Navy',     ink:'#1A2D42', sub:'#4A5A70', line:'#C0C8CA', soft:'#EEF1F2', accent:'#2E4156' },
+  forest:  { label:'🟢 Forest',   ink:'#0B2B26', sub:'#235347', line:'#B9D6C7', soft:'#EAF5EE', accent:'#163832' },
+  plum:    { label:'🟣 Plum',     ink:'#2B124C', sub:'#522B5B', line:'#DFB6B2', soft:'#FDF2EF', accent:'#854F6C' },
+  lavender:{ label:'💜 Lavender', ink:'#49225B', sub:'#6E3482', line:'#E7DBEF', soft:'#FBF6FD', accent:'#A56ABD' },
+  peach:   { label:'🍑 Peach',    ink:'#7A3B2E', sub:'#B5634A', line:'#FBD8C0', soft:'#FFF3E9', accent:'#F3B5A0' },
+  rose:    { label:'🌹 Rose',     ink:'#4C1D3D', sub:'#852E4E', line:'#FBC4B9', soft:'#FFF1EC', accent:'#DC586D' },
+};
+function applyTheme_(key){
+  const t = THEMES[key] || THEMES.navy;
+  const r = document.documentElement.style;
+  r.setProperty('--ink', t.ink); r.setProperty('--sub', t.sub);
+  r.setProperty('--line', t.line); r.setProperty('--soft', t.soft); r.setProperty('--gold', t.accent);
+}
+
+const THEME_TARGETS = [
+  { field:'themeCustomer', containerId:'themePickerCustomer', title:'หน้าลูกค้า (order.html)' },
+  { field:'themeKitchen',  containerId:'themePickerKitchen',  title:'หน้าครัว (kitchen.html)' },
+  { field:'themeAdmin',    containerId:'themePickerAdmin',    title:'หน้าแอดมิน (หน้านี้เอง)' },
+];
+let SHOP_THEMES = {};
+
+function renderThemePickers_(){
+  THEME_TARGETS.forEach(target => {
+    const current = SHOP_THEMES[target.field] || 'navy';
+    const box = $(target.containerId);
+    box.innerHTML = '<div class="theme-label">'+target.title+'</div><div class="theme-row">' +
+      Object.keys(THEMES).map(key => {
+        const t = THEMES[key];
+        return '<div class="swatch'+(key===current?' selected':'')+'" data-field="'+target.field+'" data-key="'+key+'" '+
+          'style="background:linear-gradient(135deg, '+t.soft+' 50%, '+t.accent+' 50%)" title="'+t.label+'"></div>';
+      }).join('') + '</div>';
+  });
+  document.querySelectorAll('.swatch').forEach(sw => sw.addEventListener('click', async () => {
+    const field = sw.dataset.field, key = sw.dataset.key;
+    SHOP_THEMES[field] = key;
+    try {
+      await setDoc(doc(db,'settings','shop'), {[field]: key}, {merge:true});
+      if(field === 'themeAdmin') applyTheme_(key); // หน้านี้เอง ใช้เห็นผลทันที
+      renderThemePickers_();
+    } catch(e){ alert('บันทึกธีมไม่สำเร็จ: '+e.message); }
+  }));
+}
+async function loadThemes(){
+  try {
+    const s = await getDoc(doc(db,'settings','shop'));
+    SHOP_THEMES = s.exists() ? s.data() : {};
+  } catch(e){ SHOP_THEMES = {}; }
+  renderThemePickers_();
+  if(SHOP_THEMES.themeAdmin) applyTheme_(SHOP_THEMES.themeAdmin); // สลับหน้าแอดมินเป็นธีมที่ตั้งไว้ทันทีตอนโหลด
+}
+
+// ===================== บัญชีรับเงิน PromptPay (สูงสุด 4 บัญชี) =====================
+let PROMPTPAY = [], editingPPId = null;
+$('addPPBtn').addEventListener('click', () => {
+  if(PROMPTPAY.length >= 4){ alert('มีบัญชีครบ 4 บัญชีแล้ว — ลบบัญชีเก่าก่อนถ้าต้องการเพิ่มใหม่'); return; }
+  editingPPId = null; ['ppLabel','ppNumber'].forEach(id=>$(id).value=''); $('ppType').value='phone';
+  $('ppFormBox').style.display='block';
+});
+$('cancelPPBtn').addEventListener('click', () => $('ppFormBox').style.display='none');
+$('savePPBtn').addEventListener('click', async () => {
+  const label = $('ppLabel').value.trim(), number = $('ppNumber').value.trim();
+  if(!label || !number){ alert('กรุณาใส่ชื่อเรียกและหมายเลขให้ครบ'); return; }
+  try {
+    const isFirst = PROMPTPAY.length === 0 && !editingPPId;
+    await setDoc(doc(db,'promptpay', editingPPId || 'PP'+Date.now()), {
+      label, type: $('ppType').value, number, isDefault: isFirst
+    }, {merge:true});
+    $('ppFormBox').style.display='none'; loadPromptPay();
+  } catch(e){ alert('บันทึกไม่สำเร็จ: '+e.message); }
+});
+async function loadPromptPay(){
+  const qs = await getDocs(collection(db,'promptpay'));
+  PROMPTPAY = []; qs.forEach(d=>PROMPTPAY.push({id:d.id,...d.data()}));
+  $('ppTable').innerHTML = PROMPTPAY.map(p =>
+    '<tr><td>'+p.label+'</td><td>'+(p.type==='phone'?'เบอร์โทร':'บัตรประชาชน')+'</td><td>'+p.number+'</td>'+
+    '<td>'+(p.isDefault?'<span class="pp-default">✓ ค่าเริ่มต้น</span>':'<button class="mini" data-def="'+p.id+'">ตั้งเป็นค่าเริ่มต้น</button>')+'</td>'+
+    '<td><button class="mini" data-e="'+p.id+'">แก้ไข</button><button class="mini" data-d="'+p.id+'">ลบ</button></td></tr>'
+  ).join('') || '<tr><td colspan="5" class="empty">ยังไม่มีบัญชีรับเงิน — เพิ่มเพื่อใช้ออก QR PromptPay ตอนเก็บเงิน</td></tr>';
+
+  $('ppTable').querySelectorAll('[data-e]').forEach(b=>b.addEventListener('click', ()=>{
+    const p = PROMPTPAY.find(x=>x.id===b.dataset.e); editingPPId = p.id;
+    $('ppLabel').value=p.label; $('ppType').value=p.type; $('ppNumber').value=p.number;
+    $('ppFormBox').style.display='block';
+  }));
+  $('ppTable').querySelectorAll('[data-d]').forEach(b=>b.addEventListener('click', async ()=>{
+    if(confirm('ลบบัญชีนี้?')){ await deleteDoc(doc(db,'promptpay',b.dataset.d)); loadPromptPay(); }
+  }));
+  $('ppTable').querySelectorAll('[data-def]').forEach(b=>b.addEventListener('click', async ()=>{
+    // ตั้งบัญชีนี้เป็น default แล้วปลดบัญชีอื่นทั้งหมดออกจาก default
+    await Promise.all(PROMPTPAY.map(p => updateDoc(doc(db,'promptpay',p.id), {isDefault: p.id===b.dataset.def})));
+    loadPromptPay();
+  }));
+}
 
 // ===================== แจ้งเตือน (เรียกพนักงาน / ขอเก็บเงิน) =====================
 function listenNotif(){
@@ -328,6 +474,112 @@ $('importBtn').addEventListener('click', async () => {
   }
   $('importBtn').disabled = false;
 });
+
+// ===================== สร้าง QR PromptPay (มาตรฐาน EMV ของไทย) =====================
+function crc16_(str){
+  let crc = 0xFFFF;
+  for(let c=0; c<str.length; c++){
+    crc ^= (str.charCodeAt(c) << 8);
+    for(let i=0;i<8;i++){
+      crc = (crc & 0x8000) ? ((crc<<1) ^ 0x1021) & 0xFFFF : (crc<<1) & 0xFFFF;
+    }
+  }
+  return crc.toString(16).toUpperCase().padStart(4,'0');
+}
+function tlv_(id, value){ return id + String(value.length).padStart(2,'0') + value; }
+function generatePromptPayPayload_(type, rawNumber, amount){
+  let sanitized = rawNumber.replace(/\D/g,'');
+  let subTag;
+  if(type === 'phone'){
+    if(sanitized.startsWith('0')) sanitized = sanitized.substring(1);
+    sanitized = '0066' + sanitized; // รวมเป็น 13 หลัก
+    subTag = '01';
+  } else {
+    subTag = '02'; // เลขบัตรประชาชน 13 หลัก ใช้ตามที่กรอก
+  }
+  const merchantInfo = tlv_('00','A000000677010111') + tlv_(subTag, sanitized);
+  let payload = tlv_('00','01') + tlv_('01', amount ? '12' : '11') + tlv_('29', merchantInfo) +
+    tlv_('53','764') + (amount ? tlv_('54', Number(amount).toFixed(2)) : '') + tlv_('58','TH');
+  payload += '6304';
+  return payload + crc16_(payload);
+}
+
+// ===================== แท็บ เก็บเงิน =====================
+let BILL_ORDERS = [], BILL_ITEMS = [], BILL_TOTAL = 0;
+
+$('billTableSelect').addEventListener('change', loadBillForTable);
+
+async function loadBillForTable(){
+  const table = $('billTableSelect').value;
+  const box = $('billContent');
+  if(!table){ box.innerHTML=''; return; }
+  box.innerHTML = '<div class="empty">กำลังโหลดรายการ...</div>';
+
+  const qs = await getDocs(query(collection(db,'orders'), where('table','==',table)));
+  BILL_ORDERS = []; qs.forEach(d=>{ const o={id:d.id,...d.data()}; if(!o.paid) BILL_ORDERS.push(o); });
+
+  if(!BILL_ORDERS.length){ box.innerHTML = '<div class="empty">โต๊ะนี้ไม่มีรายการค้างจ่าย</div>'; return; }
+
+  // รวมรายการอาหารจากทุกออเดอร์ของโต๊ะนี้เป็นลิสต์เดียว
+  BILL_ITEMS = [];
+  BILL_ORDERS.forEach(o => (o.items||[]).forEach(it => BILL_ITEMS.push(it)));
+  BILL_TOTAL = BILL_ITEMS.reduce((s,it)=>s + it.qty*it.price, 0);
+
+  const ppOptions = PROMPTPAY.map(p => '<option value="'+p.id+'"'+(p.isDefault?' selected':'')+'>'+p.label+' ('+p.number+')</option>').join('');
+
+  box.innerHTML =
+    '<div style="margin-top:14px">' +
+    BILL_ITEMS.map(it => '<div class="bill-item"><span class="n">'+it.name+' x'+it.qty+(it.note?'<div class="nt">📝 '+it.note+'</div>':'')+'</span><span>'+baht(it.qty*it.price)+'</span></div>').join('') +
+    '<div class="bill-total"><span>ยอดรวมทั้งหมด</span><span>'+baht(BILL_TOTAL)+'</span></div>' +
+    '<div class="form-grid"><div class="full"><label>บัญชีรับเงิน</label><select id="billPPSelect">'+
+      (ppOptions || '<option value="">-- ยังไม่มีบัญชี ไปเพิ่มที่ "ตั้งค่าร้าน" ก่อน --</option>')+
+    '</select></div></div>' +
+    '<div class="bill-actions">' +
+      '<button class="btn gold" id="printBillBtn">🖨️ ปริ้นบิล</button>' +
+      '<button class="btn danger" id="closeBillBtn">✓ ปิดบิลโต๊ะนี้</button>' +
+    '</div>';
+
+  $('printBillBtn').addEventListener('click', printBill);
+  $('closeBillBtn').addEventListener('click', closeBill);
+}
+
+function printBill(){
+  const ppId = $('billPPSelect') ? $('billPPSelect').value : '';
+  const pp = PROMPTPAY.find(p=>p.id===ppId);
+  const table = $('billTableSelect').value;
+  const shopNameVal = $('shopName').value || 'Season One';
+  const payload = pp ? generatePromptPayPayload_(pp.type, pp.number, BILL_TOTAL) : '';
+
+  const w = window.open('', '_blank', 'width=420,height=700');
+  w.document.write(
+    '<html><head><meta charset="UTF-8"><title>บิล โต๊ะ '+table+'</title>' +
+    '<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>' +
+    '<style>body{font-family:sans-serif;padding:20px;max-width:380px;margin:0 auto}h2{text-align:center;margin-bottom:4px}' +
+    '.c{text-align:center;color:#666;font-size:13px;margin-bottom:16px}table{width:100%;border-collapse:collapse;font-size:14px}' +
+    'td{padding:6px 0}.tot{font-weight:700;font-size:18px;border-top:2px solid #111;padding-top:10px}' +
+    '#qr{display:flex;justify-content:center;margin:18px 0}.note{text-align:center;font-size:12px;color:#666}</style></head><body>' +
+    '<h2>'+shopNameVal+'</h2><div class="c">โต๊ะ '+table+' — '+new Date().toLocaleString('th-TH')+'</div>' +
+    '<table>' + BILL_ITEMS.map(it=>'<tr><td>'+it.name+' x'+it.qty+'</td><td style="text-align:right">'+baht(it.qty*it.price)+'</td></tr>').join('') +
+    '<tr class="tot"><td>รวมทั้งหมด</td><td style="text-align:right">'+baht(BILL_TOTAL)+'</td></tr></table>' +
+    (pp ? '<div id="qr"></div><div class="note">สแกนจ่ายผ่าน PromptPay — '+pp.label+'</div>' : '<div class="note">ยังไม่ได้เลือกบัญชีรับเงิน</div>') +
+    '<script>window.onload=function(){' + (pp ? 'new QRCode(document.getElementById("qr"),{text:"'+payload+'",width:220,height:220});' : '') + 'setTimeout(function(){window.print()},400);}<\/script>' +
+    '</body></html>'
+  );
+  w.document.close();
+}
+
+async function closeBill(){
+  const table = $('billTableSelect').value;
+  if(!confirm('ยืนยันปิดบิลโต๊ะ '+table+'? ออเดอร์ทั้งหมดของโต๊ะนี้จะถูกทำเครื่องหมายว่าจ่ายแล้ว')) return;
+  try {
+    await Promise.all(BILL_ORDERS.map(o => updateDoc(doc(db,'orders',o.id), { paid:true, paidAt: serverTimestamp() })));
+    // เคลียร์แจ้งเตือน "ขอเก็บเงิน" ของโต๊ะนี้ออกจากหน้าแจ้งเตือนด้วย
+    const callsQs = await getDocs(query(collection(db,'calls'), where('table','==',table), where('resolved','==',false)));
+    await Promise.all(callsQs.docs.filter(d=>d.data().type==='bill').map(d => updateDoc(doc(db,'calls',d.id), {resolved:true})));
+    alert('✓ ปิดบิลโต๊ะ '+table+' เรียบร้อยแล้ว');
+    $('billTableSelect').value = ''; $('billContent').innerHTML = '';
+  } catch(e){ alert('ปิดบิลไม่สำเร็จ: '+e.message); }
+}
 </script>
 </body>
 </html>

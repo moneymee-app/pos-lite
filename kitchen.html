@@ -75,7 +75,7 @@ button{font-family:inherit;border:none;cursor:pointer}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, updateDoc, collection, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, getDoc, updateDoc, collection, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyA71ESNyfsMVV3inUmE24F5VzozhE-JIL8",
@@ -90,6 +90,26 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const $ = id => document.getElementById(id);
 
+// ===================== ธีมสี (พื้นหลังยังขาวสว่างเหมือนเดิม เปลี่ยนแค่โทนตัวหนังสือ/เส้น) =====================
+// หมายเหตุ: สีสถานะ (ส้ม/ฟ้า/เขียว ของ 3 คอลัมน์) เป็นสีสื่อความหมาย ไม่เปลี่ยนตามธีม กันครัวสับสน
+const THEMES = {
+  navy:    { ink:'#1A2D42', sub:'#4A5A70', line:'#C0C8CA', soft:'#EEF1F2' },
+  forest:  { ink:'#0B2B26', sub:'#235347', line:'#B9D6C7', soft:'#EAF5EE' },
+  plum:    { ink:'#2B124C', sub:'#522B5B', line:'#DFB6B2', soft:'#FDF2EF' },
+  lavender:{ ink:'#49225B', sub:'#6E3482', line:'#E7DBEF', soft:'#FBF6FD' },
+  peach:   { ink:'#7A3B2E', sub:'#B5634A', line:'#FBD8C0', soft:'#FFF3E9' },
+  rose:    { ink:'#4C1D3D', sub:'#852E4E', line:'#FBC4B9', soft:'#FFF1EC' },
+};
+function applyTheme_(key){
+  const t = THEMES[key] || THEMES.navy;
+  const r = document.documentElement.style;
+  r.setProperty('--ink', t.ink); r.setProperty('--sub', t.sub);
+  r.setProperty('--line', t.line); r.setProperty('--soft', t.soft);
+}
+async function loadKitchenTheme_(){
+  try { const s = await getDoc(doc(db,'settings','shop')); if(s.exists() && s.data().themeKitchen) applyTheme_(s.data().themeKitchen); } catch(e){}
+}
+
 // ===================== ล็อกอิน =====================
 $('loginBtn').addEventListener('click', async () => {
   $('loginErr').textContent = '';
@@ -102,6 +122,7 @@ onAuthStateChanged(auth, user => {
   $('app').style.display = user ? 'block' : 'none';
   if(user) startListening();
 });
+loadKitchenTheme_(); // ธีมอ่านได้แม้ยังไม่ล็อกอิน เพื่อให้หน้า login ก็ใช้ธีมเดียวกัน
 
 setInterval(() => { $('clock').textContent = 'อัปเดตล่าสุด ' + new Date().toLocaleTimeString('th-TH'); }, 1000);
 
