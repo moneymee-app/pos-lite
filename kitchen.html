@@ -9,6 +9,7 @@
 :root{--bg:#F3F4F6;--ink:#111827;--sub:#6B7280;--line:#E5E7EB;--soft:#F9FAFB;
 --new:#9CA3AF;--prep:#F97316;--ready:#3B82F6;--served:#22C55E;--r:14px}
 *{margin:0;padding:0;box-sizing:border-box}
+html,body{overflow-x:hidden;max-width:100vw}
 body{font-family:'Noto Sans Thai',system-ui,sans-serif;background:var(--bg);color:var(--ink)}
 button{font-family:inherit;border:none;cursor:pointer}
 
@@ -45,6 +46,13 @@ button{font-family:inherit;border:none;cursor:pointer}
 .act.to-prep{background:var(--prep)}
 .act.to-ready{background:var(--ready)}
 .act.to-served{background:var(--served)}
+
+@media (max-width:700px){
+  .board{grid-template-columns:1fr;padding:12px;gap:12px}
+  .topbar{padding:10px 14px}
+  .topbar h1{font-size:16px}
+  .col-head{font-size:14px;padding:12px 14px}
+}
 </style>
 </head>
 <body>
